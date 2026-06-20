@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { Eye, EyeOff, Save, Zap, Check, X, Loader2 } from 'lucide-react'
+import SetupGuide from '@/components/SetupGuide'
+import { AI_PROVIDER_GUIDES, GOOGLE_SHEETS_GUIDE } from '@/lib/setup-guides'
 
 function MaskInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   const [show, setShow] = useState(false)
@@ -165,6 +167,12 @@ export default function SettingsPage() {
                 </span>
               )}
             </div>
+            {AI_PROVIDER_GUIDES[key] && (
+              <SetupGuide
+                title={AI_PROVIDER_GUIDES[key].title}
+                steps={AI_PROVIDER_GUIDES[key].steps}
+              />
+            )}
           </CardContent>
         </Card>
       ))}
@@ -196,10 +204,10 @@ export default function SettingsPage() {
               className="font-mono text-sm"
             />
           </div>
-          <p className="text-xs text-gray-400">
-            需要在 Google Cloud Console 建立 Service Account，將 Spreadsheet 分享給該帳號。
-            詳細設定方式請參考 Google Sheets API 文件。
-          </p>
+          <SetupGuide
+            title={GOOGLE_SHEETS_GUIDE.title}
+            steps={GOOGLE_SHEETS_GUIDE.steps}
+          />
         </CardContent>
       </Card>
 

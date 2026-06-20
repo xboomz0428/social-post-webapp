@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.2.0 — 2026-06-20
+
+### 新增教學指引
+
+- **帳號設定教學**：每個平台（FB/IG/Threads/X）在帳號設定頁面新增可展開的 step-by-step 教學，含外部連結
+  - Facebook 商業帳號 API 設定（7 步驟）
+  - Instagram 商業帳號 API 設定（7 步驟）
+  - Threads API 設定（7 步驟）
+  - X (Twitter) API 設定（6 步驟）
+- **AI 設定教學**：每個 AI 提供者新增設定教學
+  - OpenAI API Key 設定（5 步驟，含模型建議）
+  - Anthropic (Claude) API Key 設定（5 步驟）
+  - Google Gemini API Key 設定（5 步驟，含免費額度說明）
+- **Google Sheets 設定教學**：6 步驟教學，含 Service Account 建立方式
+- 新增可收合教學元件 `SetupGuide`，統一教學 UI 風格
+
+---
+
 ## v1.1.0 — 2026-06-20
 
 ### Phase 1 全面改版

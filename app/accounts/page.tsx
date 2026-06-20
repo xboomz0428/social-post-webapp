@@ -13,6 +13,8 @@ import { Separator } from '@/components/ui/separator'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Plus, Trash2, Settings, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
+import SetupGuide from '@/components/SetupGuide'
+import { PLATFORM_GUIDES } from '@/lib/setup-guides'
 
 const ICONS: Record<Platform, string> = { facebook: '🔵', instagram: '📸', threads: '🧵', x: '🐦' }
 
@@ -197,6 +199,12 @@ function AccountForm({ account, onSave }: { account: SocialAccount; onSave: (a: 
           <div><Label>Access Token</Label><Input type="password" value={acc.apiKeys.keys.accessToken} onChange={e => updateKey('accessToken', e.target.value)} /></div>
           <div><Label>Access Secret</Label><Input type="password" value={acc.apiKeys.keys.accessSecret} onChange={e => updateKey('accessSecret', e.target.value)} /></div>
         </>
+      )}
+      {PLATFORM_GUIDES[acc.apiKeys.platform] && (
+        <SetupGuide
+          title={PLATFORM_GUIDES[acc.apiKeys.platform].title}
+          steps={PLATFORM_GUIDES[acc.apiKeys.platform].steps}
+        />
       )}
       <Separator />
       <h3 className="font-medium text-sm">排程設定</h3>
