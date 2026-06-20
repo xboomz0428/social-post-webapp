@@ -130,6 +130,24 @@ export default function AccountsPage() {
         </div>
       )}
 
+      {/* ─── 各平台設定教學 ─── */}
+      <Separator />
+      <div>
+        <h2 className="text-lg font-bold mb-1">📖 各平台 API 設定教學</h2>
+        <p className="text-gray-500 text-sm mb-4">展開查看 step-by-step 設定步驟，含外部連結直達設定頁面</p>
+        <div className="space-y-3">
+          {(['facebook', 'instagram', 'threads', 'x'] as const).map(platform => (
+            PLATFORM_GUIDES[platform] && (
+              <SetupGuide
+                key={platform}
+                title={`${ICONS[platform]} ${PLATFORM_GUIDES[platform].title}`}
+                steps={PLATFORM_GUIDES[platform].steps}
+              />
+            )
+          ))}
+        </div>
+      </div>
+
       {/* Edit Account Dialog */}
       <Dialog open={!!editing} onOpenChange={open => { if (!open) setEditing(null) }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
@@ -199,12 +217,6 @@ function AccountForm({ account, onSave }: { account: SocialAccount; onSave: (a: 
           <div><Label>Access Token</Label><Input type="password" value={acc.apiKeys.keys.accessToken} onChange={e => updateKey('accessToken', e.target.value)} /></div>
           <div><Label>Access Secret</Label><Input type="password" value={acc.apiKeys.keys.accessSecret} onChange={e => updateKey('accessSecret', e.target.value)} /></div>
         </>
-      )}
-      {PLATFORM_GUIDES[acc.apiKeys.platform] && (
-        <SetupGuide
-          title={PLATFORM_GUIDES[acc.apiKeys.platform].title}
-          steps={PLATFORM_GUIDES[acc.apiKeys.platform].steps}
-        />
       )}
       <Separator />
       <h3 className="font-medium text-sm">排程設定</h3>
