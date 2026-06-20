@@ -21,6 +21,9 @@ export default function RootLayout({
       <body className={`${geist.className} bg-gray-50 min-h-screen`}>
         <Navbar />
         <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
+        <footer className="border-t mt-12 py-4 text-center text-xs text-gray-400">
+          Social Post Manager v1.1.0 · <a href="/changelog" className="underline hover:text-gray-600">改版記錄</a>
+        </footer>
         <Toaster richColors position="top-right" />
       </body>
     </html>
