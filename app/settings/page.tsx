@@ -1,14 +1,16 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { getAPIKeys, saveAPIKeys } from '@/lib/storage'
-import { APIKeys } from '@/lib/types'
+import { getAIConfig, saveAIConfig, getAppSettings, saveAppSettings } from '@/lib/storage'
+import type { AIConfig, AIProvider, AppSettings } from '@/lib/types'
+import { AI_PROVIDER_LABELS, AI_MODELS } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
-import { Eye, EyeOff, Save } from 'lucide-react'
+import { Eye, EyeOff, Save, Zap, Check, X, Loader2 } from 'lucide-react'
 
 function MaskInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   const [show, setShow] = useState(false)
@@ -33,136 +35,175 @@ function MaskInput({ value, onChange, placeholder }: { value: string; onChange: 
 }
 
 export default function SettingsPage() {
-  const [keys, setKeys] = useState<APIKeys>({
-    threads: { accessToken: '', userId: '' },
-    x: { apiKey: '', apiSecret: '', accessToken: '', accessSecret: '' },
-    instagram: { accessToken: '', pageId: '', igUserId: '' },
-  })
+  const [ai, setAI] = useState<AIConfig | null>(null)
+  const [app, setApp] = useState<AppSettings | null>(null)
+  const [testing, setTesting] = useState<AIProvider | null>(null)
+  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; msg: string }>>({})
 
-  useEffect(() => { setKeys(getAPIKeys()) }, [])
+  useEffect(() => {
+    setAI(getAIConfig())
+    setApp(getAppSettings())
+  }, [])
 
-  function update<T extends keyof APIKeys>(platform: T, field: string, value: string) {
-    setKeys(k => ({ ...k, [platform]: { ...k[platform], [field]: value } }))
+  if (!ai || !app) return null
+
+  function updateProvider(provider: AIProvider, field: string, value: string | number) {
+    setAI(c => c ? { ...c, [provider]: { ...c[provider], [field]: value } } : c)
   }
 
   function handleSave() {
-    saveAPIKeys(keys)
-    toast.success('API 設定已儲存（僅存在本機）')
+    if (ai) saveAIConfig(ai)
+    if (app) saveAppSettings(app)
+    toast.success('設定已儲存')
   }
+
+  async function testConnection(provider: AIProvider) {
+    if (!ai) return
+    setTesting(provider)
+    setTestResults(r => ({ ...r, [provider]: { ok: false, msg: '測試中...' } }))
+    try {
+      const cfg = ai[provider]
+      const res = await fetch('/api/ai/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, apiKey: cfg.apiKey, model: cfg.model }),
+      })
+      const data = await res.json()
+      setTestResults(r => ({
+        ...r,
+        [provider]: { ok: data.success, msg: data.success ? `✓ ${data.message}` : `✗ ${data.message}` },
+      }))
+    } catch (err) {
+      setTestResults(r => ({ ...r, [provider]: { ok: false, msg: '連線失敗' } }))
+    }
+    setTesting(null)
+  }
+
+  const providers: { key: AIProvider; icon: string; desc: string; placeholder: string }[] = [
+    { key: 'openai', icon: '🟢', desc: '到 platform.openai.com 取得 API Key', placeholder: 'sk-...' },
+    { key: 'anthropic', icon: '🟠', desc: '到 console.anthropic.com 取得 API Key', placeholder: 'sk-ant-...' },
+    { key: 'google', icon: '🔵', desc: '到 aistudio.google.com 取得 API Key', placeholder: 'AIza...' },
+  ]
 
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">API 設定</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          API Key 僅儲存在你的瀏覽器本機，不會上傳到任何伺服器
-        </p>
+        <h1 className="text-2xl font-bold">設定</h1>
+        <p className="text-gray-500 text-sm mt-1">AI 模型設定、Google Sheets 連接</p>
       </div>
 
-      {/* Threads */}
+      {/* Active AI Provider */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            🧵 Threads API
-          </CardTitle>
-          <CardDescription>
-            到 Meta 開發者平台申請 Threads API 存取權限，取得 Access Token
-          </CardDescription>
+          <CardTitle className="text-base">預設 AI 提供者</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select value={ai.activeProvider} onValueChange={v => { if (v) setAI(c => c ? { ...c, activeProvider: v as AIProvider } : c) }}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {(['openai', 'anthropic', 'google'] as AIProvider[]).map(p => (
+                <SelectItem key={p} value={p}>{AI_PROVIDER_LABELS[p]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </CardContent>
+      </Card>
+
+      {/* Provider configs */}
+      {providers.map(({ key, icon, desc, placeholder }) => (
+        <Card key={key} className={ai.activeProvider === key ? 'ring-2 ring-blue-500' : ''}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              {icon} {AI_PROVIDER_LABELS[key]}
+              {ai.activeProvider === key && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">預設</span>}
+            </CardTitle>
+            <CardDescription>{desc}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label>API Key</Label>
+              <MaskInput
+                value={ai[key].apiKey}
+                onChange={v => updateProvider(key, 'apiKey', v)}
+                placeholder={placeholder}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>模型</Label>
+                <Select value={ai[key].model} onValueChange={v => { if (v) updateProvider(key, 'model', v) }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {AI_MODELS[key].map(m => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Temperature</Label>
+                <Input
+                  type="number"
+                  min={0} max={1} step={0.1}
+                  value={ai[key].temperature}
+                  onChange={e => updateProvider(key, 'temperature', +e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline" size="sm" className="gap-2"
+                onClick={() => testConnection(key)}
+                disabled={!ai[key].apiKey || testing === key}
+              >
+                {testing === key ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                測試連線
+              </Button>
+              {testResults[key] && (
+                <span className={`text-sm ${testResults[key].ok ? 'text-green-600' : 'text-red-500'}`}>
+                  {testResults[key].msg}
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+
+      <Separator />
+
+      {/* Google Sheets */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">📊 Google Sheets 儲存</CardTitle>
+          <CardDescription>將貼文資料同步到 Google Sheets（開發中）</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label>Access Token</Label>
-            <MaskInput
-              value={keys.threads.accessToken}
-              onChange={v => update('threads', 'accessToken', v)}
-              placeholder="THQWJRiH..."
-            />
-          </div>
-          <div>
-            <Label>User ID</Label>
+            <Label>Google Spreadsheet ID</Label>
             <Input
-              value={keys.threads.userId}
-              onChange={e => update('threads', 'userId', e.target.value)}
-              placeholder="1234567890"
+              value={app.googleSheetId}
+              onChange={e => setApp(a => a ? { ...a, googleSheetId: e.target.value } : a)}
+              placeholder="從 Google Sheets URL 中取得"
               className="font-mono text-sm"
             />
           </div>
-        </CardContent>
-      </Card>
-
-      {/* X */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            🐦 X (Twitter) API
-          </CardTitle>
-          <CardDescription>
-            到 developer.twitter.com 建立 App，取得 API Key 和 Access Token
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {[
-            { label: 'API Key', field: 'apiKey', placeholder: 'xvz1evFS4wEEPTGEFPHBog' },
-            { label: 'API Secret', field: 'apiSecret', placeholder: 'L8qq9PZyRg6ieKGEKhZolGC0vJWLw8iEJ88DRdyOg' },
-            { label: 'Access Token', field: 'accessToken', placeholder: '756201191646691328-...' },
-            { label: 'Access Token Secret', field: 'accessSecret', placeholder: 'IpT9...' },
-          ].map(({ label, field, placeholder }) => (
-            <div key={field}>
-              <Label>{label}</Label>
-              <MaskInput
-                value={(keys.x as unknown as Record<string, string>)[field]}
-                onChange={v => update('x', field, v)}
-                placeholder={placeholder}
-              />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Instagram */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            📸 Instagram API
-          </CardTitle>
-          <CardDescription>
-            需綁定 Meta 商業帳號。到 Meta Business Suite 取得 Page Access Token
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {[
-            { label: 'Page Access Token', field: 'accessToken', placeholder: 'EAABsb...' },
-            { label: 'Facebook Page ID', field: 'pageId', placeholder: '1234567890' },
-            { label: 'Instagram User ID', field: 'igUserId', placeholder: '9876543210' },
-          ].map(({ label, field, placeholder }) => (
-            <div key={field}>
-              <Label>{label}</Label>
-              <MaskInput
-                value={(keys.instagram as unknown as Record<string, string>)[field]}
-                onChange={v => update('instagram', field, v)}
-                placeholder={placeholder}
-              />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Facebook note */}
-      <Card className="border-dashed border-gray-300 bg-gray-50">
-        <CardContent className="pt-4">
-          <div className="flex gap-3">
-            <span className="text-2xl">🔵</span>
-            <div>
-              <div className="font-medium text-sm">Facebook 個人頁</div>
-              <p className="text-sm text-gray-500 mt-1">
-                Meta 不開放個人頁面的 API 發文權限。Facebook 貼文請繼續透過 Claude in Chrome 自動操作瀏覽器發佈。
-              </p>
-            </div>
+          <div>
+            <Label>Service Account Email</Label>
+            <Input
+              value={app.googleServiceAccountEmail}
+              onChange={e => setApp(a => a ? { ...a, googleServiceAccountEmail: e.target.value } : a)}
+              placeholder="xxx@xxx.iam.gserviceaccount.com"
+              className="font-mono text-sm"
+            />
           </div>
+          <p className="text-xs text-gray-400">
+            需要在 Google Cloud Console 建立 Service Account，將 Spreadsheet 分享給該帳號。
+            詳細設定方式請參考 Google Sheets API 文件。
+          </p>
         </CardContent>
       </Card>
 
-      <Button onClick={handleSave} className="gap-2 w-full">
+      <Button onClick={handleSave} className="gap-2 w-full" size="lg">
         <Save className="h-4 w-4" />
         儲存所有設定
       </Button>

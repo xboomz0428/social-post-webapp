@@ -1,13 +1,16 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, PenSquare, Settings } from 'lucide-react'
+import { LayoutDashboard, PenSquare, Settings, Users, BookTemplate } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import AccountSwitcher from './AccountSwitcher'
 
 const links = [
   { href: '/', label: '排程總覽', icon: LayoutDashboard },
   { href: '/editor', label: '新增貼文', icon: PenSquare },
-  { href: '/settings', label: 'API 設定', icon: Settings },
+  { href: '/templates', label: '公式模板', icon: BookTemplate },
+  { href: '/accounts', label: '帳號', icon: Users },
+  { href: '/settings', label: '設定', icon: Settings },
 ]
 
 export default function Navbar() {
@@ -29,9 +32,12 @@ export default function Navbar() {
               )}
             >
               <Icon className="h-4 w-4" />
-              {label}
+              <span className="hidden md:inline">{label}</span>
             </Link>
           ))}
+          <div className="ml-2 pl-2 border-l">
+            <AccountSwitcher />
+          </div>
         </nav>
       </div>
     </header>
