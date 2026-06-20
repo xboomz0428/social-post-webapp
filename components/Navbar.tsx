@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, PenSquare, Settings, Users, BookTemplate } from 'lucide-react'
+import { LayoutDashboard, PenSquare, Settings, Users, BookTemplate, HelpCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AccountSwitcher from './AccountSwitcher'
 
@@ -11,6 +11,7 @@ const links = [
   { href: '/templates', label: '公式模板', icon: BookTemplate },
   { href: '/accounts', label: '帳號', icon: Users },
   { href: '/settings', label: '設定', icon: Settings },
+  { href: '/guide', label: '說明', icon: HelpCircle },
 ]
 
 export default function Navbar() {
