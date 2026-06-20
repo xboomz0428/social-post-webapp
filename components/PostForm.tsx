@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import PlatformSelector from './PlatformSelector'
 import RichTextEditor from './RichTextEditor'
-import { Save, Send, Sparkles, Loader2 } from 'lucide-react'
+import { Save, Send, Sparkles, Loader2, Rocket, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { FORMULA_TEMPLATES } from '@/lib/formulas'
 
@@ -42,6 +42,9 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
   const [aiProvider, setAiProvider] = useState<AIProvider>('google')
   const [aiModel, setAiModel] = useState('')
   const [generating, setGenerating] = useState(false)
+  // Publishing
+  const [publishing, setPublishing] = useState(false)
+  const [publishResults, setPublishResults] = useState<{ platform: string; ok: boolean; message: string }[]>([])
 
   useEffect(() => {
     const cfg = getAIConfig()
@@ -108,7 +111,94 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
     setGenerating(false)
   }
 
+  async function handlePublishNow() {
+    if (!contentText.trim() || platforms.length === 0) return
+    if (!confirm(`確定要立即發佈到 ${platforms.map(p => PLATFORM_LABELS[p]).join('、')} 嗎？`)) return
+
+    setPublishing(true)
+    setPublishResults([])
+    const results: typeof publishResults = []
+
+    const account = accounts.find(a => a.id === accountId)
+
+    for (const platform of platforms) {
+      try {
+        let apiKeysForPlatform: Record<string, string> = {}
+        if (account && account.apiKeys.platform === platform) {
+          apiKeysForPlatform = account.apiKeys.keys as unknown as Record<string, string>
+        }
+
+        const res = await fetch('/api/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            platform,
+            content: contentText,
+            imageUrl: images[0] && !images[0].startsWith('data:') ? images[0] : undefined,
+            apiKeys: apiKeysForPlatform,
+          }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          results.push({ platform: PLATFORM_LABELS[platform], ok: true, message: `已發佈${data.url ? ` → ${data.url}` : ''}` })
+        } else {
+          results.push({ platform: PLATFORM_LABELS[platform], ok: false, message: data.error })
+        }
+      } catch (err) {
+        results.push({ platform: PLATFORM_LABELS[platform], ok: false, message: '連線失敗' })
+      }
+    }
+
+    setPublishResults(results)
+    setPublishing(false)
+
+    const allOk = results.every(r => r.ok)
+    if (allOk) {
+      setStatus('published')
+      toast.success('所有平台發佈成功！')
+    } else {
+      toast.error('部分平台發佈失敗，請查看結果')
+    }
+
+    syncToSheets('published')
+  }
+
+  async function syncToSheets(postStatus: string) {
+    try {
+      const account = accounts.find(a => a.id === accountId)
+      await fetch('/api/sheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'append',
+          post: {
+            id: initialData?.id || crypto.randomUUID(),
+            accountId,
+            accountName: account?.displayName || account?.accountName || '',
+            title,
+            contentText,
+            platforms: platforms.join(', '),
+            formula,
+            dayNumber: String(dayNumber),
+            status: postStatus,
+            scheduledAt: scheduledAt || '',
+            publishedAt: postStatus === 'published' ? new Date().toISOString() : '',
+            likes: '', comments: '', shares: '', reach: '', nonFollowerPct: '',
+            aiGenerated: String(generating),
+            aiProvider: aiProvider || '',
+            notes,
+            createdAt: initialData?.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        }),
+      })
+    } catch {
+      // Google Sheets sync is best-effort
+    }
+  }
+
   function handleSubmit(newStatus?: PostStatus) {
+    syncToSheets(newStatus ?? status)
     onSave({
       accountId,
       title,
@@ -309,6 +399,26 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
             <Button variant="outline" className="w-full gap-2" onClick={() => handleSubmit('scheduled')} disabled={saving}>
               <Send className="h-4 w-4" />設為排程
             </Button>
+          )}
+          {platforms.length > 0 && contentText.trim() && (
+            <Button
+              className="w-full gap-2 bg-green-600 hover:bg-green-700"
+              onClick={handlePublishNow}
+              disabled={publishing}
+            >
+              {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+              {publishing ? '發佈中...' : '立即發佈'}
+            </Button>
+          )}
+          {publishResults.length > 0 && (
+            <div className="space-y-1 mt-2">
+              {publishResults.map((r, i) => (
+                <div key={i} className={`text-xs flex items-center gap-1.5 p-2 rounded ${r.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                  {r.ok ? '✓' : <AlertCircle className="h-3 w-3" />}
+                  {r.platform}: {r.message}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

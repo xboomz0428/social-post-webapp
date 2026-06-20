@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.4.0 — 2026-06-20
+
+### 功能實際接通（排程 / Google Sheets / 發佈）
+
+- **🚀 立即發佈功能**：新增「立即發佈」按鈕，可真正呼叫各平台 API 發文
+  - Threads API（建立 → 發佈兩步驟）
+  - X (Twitter) API v2（OAuth 1.0a HMAC-SHA1 簽名）
+  - Facebook Graph API（粉絲專頁發文）
+  - Instagram Graph API（需圖片 + 商業帳號）
+  - 發佈結果即時顯示（成功/失敗 + 錯誤訊息）
+- **📊 Google Sheets 真正接通**：
+  - 後端 `/api/sheets` API route，使用 `googleapis` 套件
+  - 自動建立「貼文」「帳號」「口吻設定」三個工作表 + 表頭
+  - 儲存/發佈貼文時自動同步寫入 Google Sheets
+  - 設定頁面新增「測試連線 & 初始化工作表」按鈕
+  - 說明 Google Sheets 需在 Vercel 環境變數設定（GOOGLE_SPREADSHEET_ID + GOOGLE_SERVICE_ACCOUNT_KEY）
+- **⚠️ 重要說明**：Google Sheets 的 Service Account JSON 金鑰需設定為 Vercel 環境變數，不能從前端 UI 輸入（安全考量）
+
+---
+
 ## v1.3.1 — 2026-06-20
 
 ### 帳號管理教學位置調整

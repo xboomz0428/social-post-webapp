@@ -183,11 +183,18 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">📊 Google Sheets 儲存</CardTitle>
-          <CardDescription>將貼文資料同步到 Google Sheets（開發中）</CardDescription>
+          <CardDescription>貼文資料自動同步到 Google Sheets</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+            ⚠️ Google Sheets 需要在 <strong>Vercel 環境變數</strong>設定以下兩個值（不是在這個頁面填入）：
+            <ul className="list-disc list-inside mt-2 space-y-1 text-xs">
+              <li><code>GOOGLE_SPREADSHEET_ID</code> — 試算表的 ID</li>
+              <li><code>GOOGLE_SERVICE_ACCOUNT_KEY</code> — Service Account 的 JSON 金鑰（整個 JSON 內容）</li>
+            </ul>
+          </div>
           <div>
-            <Label>Google Spreadsheet ID</Label>
+            <Label>Spreadsheet ID（僅供記錄）</Label>
             <Input
               value={app.googleSheetId}
               onChange={e => setApp(a => a ? { ...a, googleSheetId: e.target.value } : a)}
@@ -196,7 +203,7 @@ export default function SettingsPage() {
             />
           </div>
           <div>
-            <Label>Service Account Email</Label>
+            <Label>Service Account Email（僅供記錄）</Label>
             <Input
               value={app.googleServiceAccountEmail}
               onChange={e => setApp(a => a ? { ...a, googleServiceAccountEmail: e.target.value } : a)}
@@ -204,6 +211,30 @@ export default function SettingsPage() {
               className="font-mono text-sm"
             />
           </div>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={async () => {
+              try {
+                const res = await fetch('/api/sheets', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action: 'init' }),
+                })
+                const data = await res.json()
+                if (data.success) {
+                  toast.success(`Google Sheets 已連線！${data.created?.length ? '建立了工作表：' + data.created.join(', ') : '所有工作表已存在'}`)
+                } else {
+                  toast.error(data.error)
+                }
+              } catch {
+                toast.error('連線失敗')
+              }
+            }}
+          >
+            <Zap className="h-4 w-4" />
+            測試連線 & 初始化工作表
+          </Button>
           <SetupGuide
             title={GOOGLE_SHEETS_GUIDE.title}
             steps={GOOGLE_SHEETS_GUIDE.steps}
