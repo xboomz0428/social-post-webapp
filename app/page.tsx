@@ -6,13 +6,23 @@ import { Post, PLATFORM_LABELS, STATUS_LABELS, STATUS_COLORS } from '@/lib/types
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { PenSquare, Trash2, Eye, Plus, Calendar } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PenSquare, Trash2, Plus, Calendar, List, MessageSquare } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import { toast } from 'sonner'
+import ContentCalendar from '@/components/ContentCalendar'
+
+const PLATFORM_DOT: Record<string, string> = {
+  facebook: 'bg-blue-500',
+  instagram: 'bg-gradient-to-r from-purple-500 to-pink-500',
+  threads: 'bg-gray-800',
+  x: 'bg-gray-600',
+}
 
 export default function DashboardPage() {
   const [posts, setPosts] = useState<Post[]>([])
+  const [view, setView] = useState<'calendar' | 'list'>('calendar')
 
   useEffect(() => {
     setPosts(getPosts().sort((a, b) => {
@@ -41,12 +51,28 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold">排程總覽</h1>
           <p className="text-gray-500 text-sm mt-1">管理你的社群貼文排程</p>
         </div>
-        <Link href="/editor">
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            新增貼文
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <div className="flex border rounded-lg overflow-hidden">
+            <button
+              className={`px-3 py-1.5 text-sm flex items-center gap-1.5 ${view === 'calendar' ? 'bg-gray-100 font-medium' : 'hover:bg-gray-50'}`}
+              onClick={() => setView('calendar')}
+            >
+              <Calendar className="h-3.5 w-3.5" /> 日曆
+            </button>
+            <button
+              className={`px-3 py-1.5 text-sm flex items-center gap-1.5 border-l ${view === 'list' ? 'bg-gray-100 font-medium' : 'hover:bg-gray-50'}`}
+              onClick={() => setView('list')}
+            >
+              <List className="h-3.5 w-3.5" /> 列表
+            </button>
+          </div>
+          <Link href="/editor">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              新增貼文
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats */}
@@ -65,103 +91,114 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Schedule Table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Calendar className="h-4 w-4" />
-            所有貼文
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {posts.length === 0 ? (
-            <div className="text-center py-16 text-gray-400">
-              <Calendar className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p>還沒有貼文</p>
-              <Link href="/editor">
-                <Button variant="link" className="mt-2">新增第一篇</Button>
-              </Link>
-            </div>
-          ) : (
-            <div className="divide-y">
-              {posts.map(post => (
-                <div key={post.id} className="flex items-start gap-4 px-6 py-4 hover:bg-gray-50">
-                  {/* Date column */}
-                  <div className="w-24 shrink-0 text-sm">
-                    {post.scheduledAt ? (
-                      <div>
-                        <div className="font-medium">
-                          {format(parseISO(post.scheduledAt), 'MM/dd', { locale: zhTW })}
-                        </div>
-                        <div className="text-gray-400 text-xs">
-                          {format(parseISO(post.scheduledAt), 'HH:mm')}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400">未排程</span>
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      {post.formula && (
-                        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-mono">
-                          {post.formula}
-                        </span>
-                      )}
-                      {post.dayNumber > 0 && (
-                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                          Day {post.dayNumber}
-                        </span>
-                      )}
-                      <Badge className={`text-xs ${STATUS_COLORS[post.status]}`} variant="outline">
-                        {STATUS_LABELS[post.status]}
-                      </Badge>
-                    </div>
-                    <p className="text-sm font-medium truncate">
-                      {post.title || post.contentText?.slice(0, 60) || '（無標題）'}
-                    </p>
-                    <div className="flex gap-1 mt-1.5 flex-wrap">
+      {/* Calendar or List view */}
+      {view === 'calendar' ? (
+        <ContentCalendar posts={posts} />
+      ) : (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <List className="h-4 w-4" />
+              所有貼文
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {posts.length === 0 ? (
+              <div className="text-center py-16 text-gray-400">
+                <Calendar className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p>還沒有貼文</p>
+                <Link href="/editor">
+                  <Button variant="link" className="mt-2">新增第一篇</Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {posts.map(post => (
+                  <div key={post.id} className="flex items-start gap-4 px-6 py-4 hover:bg-gray-50">
+                    {/* Platform color bar */}
+                    <div className="flex flex-col gap-1 mt-1">
                       {post.platforms.map(p => (
-                        <span key={p} className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                          {PLATFORM_LABELS[p]}
-                        </span>
+                        <div key={p} className={`w-3 h-3 rounded-full ${PLATFORM_DOT[p] || 'bg-gray-300'}`} title={PLATFORM_LABELS[p as keyof typeof PLATFORM_LABELS]} />
                       ))}
                     </div>
-                  </div>
 
-                  {/* Stats */}
-                  {post.status === 'published' && (post.stats.likes || post.stats.comments) ? (
-                    <div className="text-xs text-gray-500 text-right shrink-0">
-                      <div>❤️ {post.stats.likes ?? '-'}</div>
-                      <div>💬 {post.stats.comments ?? '-'}</div>
-                      <div>🔗 {post.stats.shares ?? '-'}</div>
+                    {/* Date column */}
+                    <div className="w-20 shrink-0 text-sm">
+                      {post.scheduledAt ? (
+                        <div>
+                          <div className="font-medium">
+                            {format(parseISO(post.scheduledAt), 'MM/dd', { locale: zhTW })}
+                          </div>
+                          <div className="text-gray-400 text-xs">
+                            {format(parseISO(post.scheduledAt), 'HH:mm')}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 text-xs">未排程</span>
+                      )}
                     </div>
-                  ) : null}
 
-                  {/* Actions */}
-                  <div className="flex gap-1 shrink-0">
-                    <Link href={`/editor/${post.id}`}>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <PenSquare className="h-4 w-4" />
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        {post.formula && (
+                          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-mono">
+                            {post.formula}
+                          </span>
+                        )}
+                        {post.dayNumber > 0 && (
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                            Day {post.dayNumber}
+                          </span>
+                        )}
+                        <Badge className={`text-xs ${STATUS_COLORS[post.status]}`} variant="outline">
+                          {STATUS_LABELS[post.status]}
+                        </Badge>
+                      </div>
+                      <p className="text-sm font-medium truncate">
+                        {post.title || post.contentText?.slice(0, 60) || '（無標題）'}
+                      </p>
+                      {/* Notes for draft / published */}
+                      {(post.status === 'draft' || post.status === 'published') && post.notes && (
+                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                          <MessageSquare className="h-3 w-3" />
+                          <span className="truncate">{post.notes.slice(0, 50)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Stats */}
+                    {post.status === 'published' && (post.stats.likes || post.stats.comments) ? (
+                      <div className="text-xs text-gray-500 text-right shrink-0">
+                        <div>❤️ {post.stats.likes ?? '-'}</div>
+                        <div>💬 {post.stats.comments ?? '-'}</div>
+                        <div>🔗 {post.stats.shares ?? '-'}</div>
+                      </div>
+                    ) : null}
+
+                    {/* Actions */}
+                    <div className="flex gap-1 shrink-0">
+                      <Link href={`/editor/${post.id}`}>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <PenSquare className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
+                        onClick={() => handleDelete(post.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-red-400 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => handleDelete(post.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
