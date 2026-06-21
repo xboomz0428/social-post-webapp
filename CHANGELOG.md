@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.1.0 — 2026-06-21
+
+### Bug 修復 + 功能補強
+
+- **修復帳號切換器崩潰**：重寫 AccountSwitcher 元件，改用原生 dropdown 取代有相容性問題的 base-ui DropdownMenu
+- **圖片上傳改用 Vercel Blob**：上傳圖片現在存到 Vercel Blob Storage（公開 URL），不再用 base64 塞 localStorage
+  - 解決 localStorage 容量限制問題
+  - Instagram API 發文可以直接用圖片 URL
+  - 上傳中顯示 loading 動畫
+  - 上傳失敗自動 fallback 到 base64
+- **編輯器新增 Hashtag 推薦按鈕**：在編輯器中直接呼叫 AI 推薦 hashtag，點擊即可複製
+- **編輯器新增跨平台預覽按鈕**：一鍵查看貼文在 FB/IG/Threads/X 的模擬顯示效果
+- **新增 `/api/upload` 圖片上傳端點**
+- 需要在 Vercel 設定 `BLOB_READ_WRITE_TOKEN` 環境變數
+
+---
+
 ## v2.0.0 — 2026-06-21
 
 ### 第二期 8 大功能上線

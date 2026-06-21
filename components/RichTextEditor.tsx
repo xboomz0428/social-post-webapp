@@ -4,9 +4,9 @@ import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import CharacterCount from '@tiptap/extension-character-count'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
-  Bold, Italic, List, ListOrdered, ImageIcon, Minus, Undo, Redo
+  Bold, Italic, List, ListOrdered, ImageIcon, Minus, Undo, Redo, Loader2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -19,6 +19,7 @@ interface Props {
 
 export default function RichTextEditor({ content, onChange, onImagesChange, placeholder }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
 
   const editor = useEditor({
     extensions: [
@@ -55,15 +56,34 @@ export default function RichTextEditor({ content, onChange, onImagesChange, plac
     editor?.chain().focus().setImage({ src }).run()
   }
 
-  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => {
-      if (ev.target?.result) insertImage(ev.target.result as string)
-    }
-    reader.readAsDataURL(file)
     e.target.value = ''
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (data.success && data.url) {
+        insertImage(data.url)
+      } else {
+        const reader = new FileReader()
+        reader.onload = ev => {
+          if (ev.target?.result) insertImage(ev.target.result as string)
+        }
+        reader.readAsDataURL(file)
+      }
+    } catch {
+      const reader = new FileReader()
+      reader.onload = ev => {
+        if (ev.target?.result) insertImage(ev.target.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+    setUploading(false)
   }
 
   if (!editor) return null
@@ -102,8 +122,8 @@ export default function RichTextEditor({ content, onChange, onImagesChange, plac
           onClick={() => fileInputRef.current?.click()}
           className="h-8 px-2 gap-1 text-xs"
         >
-          <ImageIcon className="h-4 w-4" />
-          插入圖片
+          {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+          {uploading ? '上傳中...' : '插入圖片'}
         </Button>
         <input
           ref={fileInputRef}

@@ -12,7 +12,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import PlatformSelector from './PlatformSelector'
 import RichTextEditor from './RichTextEditor'
-import { Save, Send, Sparkles, Loader2, Rocket, AlertCircle } from 'lucide-react'
+import PlatformPreview from './PlatformPreview'
+import { Save, Send, Sparkles, Loader2, Rocket, AlertCircle, Hash, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import { FORMULA_TEMPLATES } from '@/lib/formulas'
 
@@ -45,6 +46,10 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
   // Publishing
   const [publishing, setPublishing] = useState(false)
   const [publishResults, setPublishResults] = useState<{ platform: string; ok: boolean; message: string }[]>([])
+  // Hashtag + Preview
+  const [suggestedHashtags, setSuggestedHashtags] = useState<string[]>([])
+  const [loadingHashtags, setLoadingHashtags] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   useEffect(() => {
     const cfg = getAIConfig()
@@ -294,14 +299,95 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
         </Card>
 
         {contentText && (
-          <Card>
-            <CardContent className="pt-4">
-              <Label className="text-sm font-medium">純文字預覽</Label>
-              <div className="mt-2 bg-gray-50 rounded-lg p-4 text-sm whitespace-pre-wrap text-gray-700 max-h-48 overflow-y-auto">
-                {contentText}
-              </div>
-            </CardContent>
-          </Card>
+          <>
+            {/* Hashtag + Preview buttons */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                disabled={loadingHashtags || !contentText.trim()}
+                onClick={async () => {
+                  const cfg = getAIConfig()
+                  const providerCfg = cfg[aiProvider]
+                  if (!providerCfg.apiKey) return
+                  setLoadingHashtags(true)
+                  try {
+                    const res = await fetch('/api/ai/hashtags', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        provider: aiProvider,
+                        apiKey: providerCfg.apiKey,
+                        model: aiModel || providerCfg.model,
+                        content: contentText,
+                        platform: platforms[0] || 'facebook',
+                        language: 'zh-TW',
+                      }),
+                    })
+                    const data = await res.json()
+                    if (data.hashtags) setSuggestedHashtags(data.hashtags)
+                  } catch {}
+                  setLoadingHashtags(false)
+                }}
+              >
+                {loadingHashtags ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Hash className="h-3.5 w-3.5" />}
+                推薦 Hashtag
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setShowPreview(p => !p)}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                {showPreview ? '隱藏預覽' : '跨平台預覽'}
+              </Button>
+            </div>
+
+            {/* Hashtag suggestions */}
+            {suggestedHashtags.length > 0 && (
+              <Card>
+                <CardContent className="pt-3 pb-3">
+                  <Label className="text-xs text-gray-500">推薦 Hashtag（點擊複製）</Label>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {suggestedHashtags.map(tag => (
+                      <button
+                        key={tag}
+                        className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full hover:bg-blue-100 transition-colors"
+                        onClick={() => navigator.clipboard.writeText(tag)}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    className="text-xs text-gray-400 hover:text-gray-600 mt-2"
+                    onClick={() => {
+                      navigator.clipboard.writeText(suggestedHashtags.join(' '))
+                    }}
+                  >
+                    複製全部
+                  </button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Platform Preview */}
+            {showPreview && (
+              <PlatformPreview content={contentText} platforms={platforms} images={images} />
+            )}
+
+            {/* Plain text preview */}
+            <Card>
+              <CardContent className="pt-4">
+                <Label className="text-sm font-medium">純文字預覽</Label>
+                <div className="mt-2 bg-gray-50 rounded-lg p-4 text-sm whitespace-pre-wrap text-gray-700 max-h-48 overflow-y-auto">
+                  {contentText}
+                </div>
+              </CardContent>
+            </Card>
+          </>
         )}
 
         <Card>
