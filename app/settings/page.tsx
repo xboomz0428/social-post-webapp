@@ -1,16 +1,17 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { getAIConfig, saveAIConfig, getAppSettings, saveAppSettings } from '@/lib/storage'
+import { getAIConfig, saveAIConfig, getAppSettings, saveAppSettings, getPosts, savePost } from '@/lib/storage'
 import type { AIConfig, AIProvider, AppSettings } from '@/lib/types'
 import { AI_PROVIDER_LABELS, AI_MODELS } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
-import { Eye, EyeOff, Save, Zap, Check, X, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Save, Zap, Check, X, Loader2, ArrowUpFromLine, ArrowDownToLine, RefreshCw } from 'lucide-react'
 import SetupGuide from '@/components/SetupGuide'
 import { AI_PROVIDER_GUIDES, GOOGLE_SHEETS_GUIDE } from '@/lib/setup-guides'
 
@@ -41,10 +42,21 @@ export default function SettingsPage() {
   const [app, setApp] = useState<AppSettings | null>(null)
   const [testing, setTesting] = useState<AIProvider | null>(null)
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; msg: string }>>({})
+  const [syncing, setSyncing] = useState<'push' | 'pull' | null>(null)
+  const [syncStatus, setSyncStatus] = useState<{ connected: boolean; postCount: number; lastSync: string | null }>({ connected: false, postCount: 0, lastSync: null })
 
   useEffect(() => {
     setAI(getAIConfig())
     setApp(getAppSettings())
+    // Check sheets sync status
+    fetch('/api/sheets/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'status' }),
+    })
+      .then(r => r.json())
+      .then(data => setSyncStatus(prev => ({ ...prev, connected: data.connected, postCount: data.postCount })))
+      .catch(() => {})
   }, [])
 
   if (!ai || !app) return null
@@ -224,6 +236,7 @@ export default function SettingsPage() {
                 const data = await res.json()
                 if (data.success) {
                   toast.success(`Google Sheets 已連線！${data.created?.length ? '建立了工作表：' + data.created.join(', ') : '所有工作表已存在'}`)
+                  setSyncStatus(prev => ({ ...prev, connected: true }))
                 } else {
                   toast.error(data.error)
                 }
@@ -235,6 +248,89 @@ export default function SettingsPage() {
             <Zap className="h-4 w-4" />
             測試連線 & 初始化工作表
           </Button>
+
+          {/* Sync buttons */}
+          <Separator />
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <RefreshCw className="h-4 w-4" />
+              <span>資料同步</span>
+              {syncStatus.connected && (
+                <Badge variant="outline" className="text-green-600 border-green-300">已連線</Badge>
+              )}
+              {syncStatus.postCount > 0 && (
+                <span className="text-xs text-gray-400">Sheets 上有 {syncStatus.postCount} 篇貼文</span>
+              )}
+            </div>
+            {syncStatus.lastSync && (
+              <p className="text-xs text-gray-400">上次同步：{syncStatus.lastSync}</p>
+            )}
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={syncing !== null}
+                onClick={async () => {
+                  setSyncing('push')
+                  try {
+                    const allPosts = getPosts()
+                    const res = await fetch('/api/sheets/sync', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'push', posts: allPosts }),
+                    })
+                    const data = await res.json()
+                    if (data.success) {
+                      toast.success(`已推送 ${data.count} 篇貼文到 Google Sheets`)
+                      setSyncStatus(prev => ({ ...prev, postCount: data.count, lastSync: new Date().toLocaleString('zh-TW') }))
+                    } else {
+                      toast.error(data.error || '推送失敗')
+                    }
+                  } catch {
+                    toast.error('推送失敗')
+                  }
+                  setSyncing(null)
+                }}
+              >
+                {syncing === 'push' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUpFromLine className="h-4 w-4" />}
+                推送到 Sheets
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={syncing !== null}
+                onClick={async () => {
+                  if (!confirm('從 Sheets 拉取會覆蓋目前本機的所有貼文，確定繼續？')) return
+                  setSyncing('pull')
+                  try {
+                    const res = await fetch('/api/sheets/sync', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'pull' }),
+                    })
+                    const data = await res.json()
+                    if (data.posts) {
+                      // Save pulled posts to localStorage
+                      localStorage.setItem('social_posts', JSON.stringify(data.posts))
+                      toast.success(`已從 Sheets 拉取 ${data.count} 篇貼文`)
+                      setSyncStatus(prev => ({ ...prev, postCount: data.count, lastSync: new Date().toLocaleString('zh-TW') }))
+                    } else {
+                      toast.error(data.error || '拉取失敗')
+                    }
+                  } catch {
+                    toast.error('拉取失敗')
+                  }
+                  setSyncing(null)
+                }}
+              >
+                {syncing === 'pull' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowDownToLine className="h-4 w-4" />}
+                從 Sheets 拉取
+              </Button>
+            </div>
+          </div>
+
           <SetupGuide
             title={GOOGLE_SHEETS_GUIDE.title}
             steps={GOOGLE_SHEETS_GUIDE.steps}

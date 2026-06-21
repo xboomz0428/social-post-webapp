@@ -1,14 +1,17 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, PenSquare, Settings, Users, BookTemplate, HelpCircle } from 'lucide-react'
+import { LayoutDashboard, PenSquare, Settings, Users, BookTemplate, HelpCircle, BarChart3, CalendarPlus, Brain, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import AccountSwitcher from './AccountSwitcher'
 
 const links = [
-  { href: '/', label: '排程總覽', icon: LayoutDashboard },
-  { href: '/editor', label: '新增貼文', icon: PenSquare },
-  { href: '/templates', label: '公式模板', icon: BookTemplate },
+  { href: '/', label: '排程', icon: LayoutDashboard },
+  { href: '/editor', label: '新增', icon: PenSquare },
+  { href: '/batch', label: '批次', icon: CalendarPlus },
+  { href: '/templates', label: '模板', icon: BookTemplate },
+  { href: '/dashboard', label: '數據', icon: BarChart3 },
+  { href: '/analysis', label: '分析', icon: Brain },
   { href: '/accounts', label: '帳號', icon: Users },
   { href: '/settings', label: '設定', icon: Settings },
   { href: '/guide', label: '說明', icon: HelpCircle },
