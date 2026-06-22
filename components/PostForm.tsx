@@ -264,7 +264,7 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'append',
+          action: 'upsert',
           post: {
             id: initialData?.id || crypto.randomUUID(),
             accountId,

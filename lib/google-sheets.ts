@@ -79,6 +79,44 @@ export async function appendPost(config: SheetConfig, post: Record<string, strin
   })
 }
 
+export async function upsertPost(config: SheetConfig, post: Record<string, string>) {
+  const sheets = getSheets(config.serviceAccountKey)
+
+  const result = await sheets.spreadsheets.values.get({
+    spreadsheetId: config.spreadsheetId,
+    range: '貼文!A:A',
+  })
+
+  const ids = result.data.values ?? []
+  const rowIndex = ids.findIndex(r => r[0] === post.id)
+
+  const row = [
+    post.id, post.accountId, post.accountName, post.title,
+    post.contentText, post.platforms, post.formula, post.dayNumber,
+    post.status, post.scheduledAt || '', post.publishedAt || '',
+    post.likes || '', post.comments || '', post.shares || '',
+    post.reach || '', post.nonFollowerPct || '',
+    post.aiGenerated || '', post.aiProvider || '', post.notes,
+    post.createdAt, post.updatedAt,
+  ]
+
+  if (rowIndex >= 0) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: config.spreadsheetId,
+      range: `貼文!A${rowIndex + 1}:U${rowIndex + 1}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [row] },
+    })
+  } else {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: config.spreadsheetId,
+      range: '貼文!A:U',
+      valueInputOption: 'RAW',
+      requestBody: { values: [row] },
+    })
+  }
+}
+
 export async function updatePostInSheet(config: SheetConfig, postId: string, updates: Record<string, string>) {
   const sheets = getSheets(config.serviceAccountKey)
 

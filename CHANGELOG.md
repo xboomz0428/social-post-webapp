@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.4.1 — 2026-06-22
+
+### 修復自動排程發佈
+
+- **Google Sheets 同步改為 upsert**：儲存/排程貼文時，自動檢查 Google Sheets 是否已有該貼文
+  - 已存在 → 更新該列（避免重複）
+  - 不存在 → 新增一列
+  - 確保 Cron Job 執行時 Google Sheets 有最新的排程資料
+- **新增 `upsertPost` 函式**（`lib/google-sheets.ts`）
+- **新增 `upsert` action**（`/api/sheets`）
+- **設定 `THREADS_USER_ID` Vercel 環境變數**
+
+---
+
 ## v2.4.0 — 2026-06-22
 
 ### 台灣法規合規系統

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { ensureSheetsExist, appendPost, updatePostInSheet, getAllPosts } from '@/lib/google-sheets'
+import { ensureSheetsExist, appendPost, upsertPost, updatePostInSheet, getAllPosts } from '@/lib/google-sheets'
 
 function getConfig() {
   const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID
@@ -42,6 +42,11 @@ export async function POST(request: Request) {
     if (action === 'append') {
       await appendPost(config, body.post)
       return NextResponse.json({ success: true, message: '貼文已寫入 Google Sheets' })
+    }
+
+    if (action === 'upsert') {
+      await upsertPost(config, body.post)
+      return NextResponse.json({ success: true, message: '貼文已同步到 Google Sheets' })
     }
 
     if (action === 'update') {
