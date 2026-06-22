@@ -31,7 +31,12 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
   const [contentText, setContentText] = useState(initialData?.contentText ?? '')
   const [images, setImages] = useState<string[]>(initialData?.images ?? [])
   const [platforms, setPlatforms] = useState<Platform[]>(initialData?.platforms ?? [])
-  const [scheduledAt, setScheduledAt] = useState(initialData?.scheduledAt ? initialData.scheduledAt.slice(0, 16) : '')
+  const [scheduledAt, setScheduledAt] = useState(() => {
+    if (!initialData?.scheduledAt) return ''
+    const d = new Date(initialData.scheduledAt)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  })
   const [status, setStatus] = useState<PostStatus>(initialData?.status ?? 'draft')
   const [formula, setFormula] = useState(initialData?.formula ?? defaultFormula ?? '')
   const [dayNumber, setDayNumber] = useState(String(initialData?.dayNumber ?? ''))
@@ -521,26 +526,50 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
             {suggestedHashtags.length > 0 && (
               <Card>
                 <CardContent className="pt-3 pb-3">
-                  <Label className="text-xs text-gray-500">推薦 Hashtag（點擊複製）</Label>
+                  <Label className="text-xs text-gray-500">推薦 Hashtag（點擊貼入本文）</Label>
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    {suggestedHashtags.map(tag => (
-                      <button
-                        key={tag}
-                        className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full hover:bg-blue-100 transition-colors"
-                        onClick={() => navigator.clipboard.writeText(tag)}
-                      >
-                        {tag}
-                      </button>
-                    ))}
+                    {suggestedHashtags.map(tag => {
+                      const hashTag = tag.startsWith('#') ? tag : `#${tag}`
+                      return (
+                        <button
+                          key={tag}
+                          className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full hover:bg-blue-100 transition-colors"
+                          onClick={() => {
+                            const insert = ` ${hashTag}`
+                            setContentText(t => t + insert)
+                            setContent(c => c.replace(/<\/p>$/, `${insert}</p>`) || `<p>${insert}</p>`)
+                            toast.success(`已貼入 ${hashTag}`)
+                          }}
+                        >
+                          {hashTag}
+                        </button>
+                      )
+                    })}
                   </div>
-                  <button
-                    className="text-xs text-gray-400 hover:text-gray-600 mt-2"
-                    onClick={() => {
-                      navigator.clipboard.writeText(suggestedHashtags.join(' '))
-                    }}
-                  >
-                    複製全部
-                  </button>
+                  <div className="flex gap-3 mt-2">
+                    <button
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                      onClick={() => {
+                        const allTags = suggestedHashtags.map(t => t.startsWith('#') ? t : `#${t}`).join(' ')
+                        const insert = `\n${allTags}`
+                        setContentText(t => t + insert)
+                        setContent(c => c.replace(/<\/p>$/, `</p><p>${allTags}</p>`) || `<p>${allTags}</p>`)
+                        toast.success('已全部貼入本文')
+                      }}
+                    >
+                      全部貼入本文
+                    </button>
+                    <button
+                      className="text-xs text-gray-400 hover:text-gray-600"
+                      onClick={() => {
+                        const allTags = suggestedHashtags.map(t => t.startsWith('#') ? t : `#${t}`).join(' ')
+                        navigator.clipboard.writeText(allTags)
+                        toast.success('已複製到剪貼簿')
+                      }}
+                    >
+                      複製到剪貼簿
+                    </button>
+                  </div>
                 </CardContent>
               </Card>
             )}
