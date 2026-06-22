@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import PlatformSelector from './PlatformSelector'
 import RichTextEditor from './RichTextEditor'
 import PlatformPreview from './PlatformPreview'
+import EmojiPicker from './EmojiPicker'
 import { Save, Send, Sparkles, Loader2, Rocket, AlertCircle, Hash, Eye, ImagePlus, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { FORMULA_TEMPLATES } from '@/lib/formulas'
@@ -394,7 +395,13 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
               <Input className="mt-1" placeholder="例：Day 1 F6b-A 通路開發工具" value={title} onChange={e => setTitle(e.target.value)} />
             </div>
             <div>
-              <Label>貼文內容</Label>
+              <div className="flex items-center justify-between">
+                <Label>貼文內容</Label>
+                <EmojiPicker onSelect={emoji => {
+                  setContent(c => c.replace(/<\/p>$/, `${emoji}</p>`) || `<p>${emoji}</p>`)
+                  setContentText(t => t + emoji)
+                }} />
+              </div>
               <div className="mt-1">
                 <RichTextEditor
                   content={content}

@@ -166,7 +166,7 @@ export default function AccountsPage() {
 
       {/* Style Profiles List Dialog */}
       <Dialog open={!!stylesAccount} onOpenChange={open => { if (!open) setStylesAccount(null) }}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>口吻管理</DialogTitle>
           </DialogHeader>
@@ -205,9 +205,9 @@ export default function AccountsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Style Profile Edit Dialog */}
+      {/* Style Profile Edit Dialog — Full Width */}
       <Dialog open={!!styleEditing} onOpenChange={open => { if (!open) setStyleEditing(null) }}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>口吻 / 風格設定</DialogTitle></DialogHeader>
           {styleEditing && <StyleForm profile={styleEditing} onSave={handleSaveStyle} />}
         </DialogContent>
@@ -287,14 +287,44 @@ function StyleForm({ profile, onSave }: { profile: StyleProfile; onSave: (p: Sty
   const u = (f: keyof StyleProfile, v: string | string[]) => setSp(p => ({ ...p, [f]: v }))
 
   return (
-    <div className="space-y-4 pt-2">
-      <div><Label>口吻名稱</Label><Input value={sp.name} onChange={e => u('name', e.target.value)} placeholder="例：品牌正式風" /></div>
-      <div><Label>語氣摘要</Label><Textarea rows={3} value={sp.toneSummary} onChange={e => u('toneSummary', e.target.value)} placeholder="口語實在、有溫度，說真話不說場面話..." /></div>
-      <div><Label>範例貼文（每篇一行）</Label><Textarea rows={5} value={sp.samplePosts.join('\n---\n')} onChange={e => u('samplePosts', e.target.value.split('\n---\n').filter(Boolean))} placeholder="貼上 2-3 篇代表性貼文，用 --- 分隔" /></div>
-      <div><Label>目標受眾</Label><Input value={sp.targetAudience} onChange={e => u('targetAudience', e.target.value)} placeholder="30-50 歲中小企業主" /></div>
-      <div><Label>偏好 Hashtag（逗號分隔）</Label><Input value={sp.hashtagPrefs.join(', ')} onChange={e => u('hashtagPrefs', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} /></div>
-      <div><Label>避免用語（逗號分隔）</Label><Input value={sp.avoidWords.join(', ')} onChange={e => u('avoidWords', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} placeholder="護城河, 本質, 真正的..." /></div>
-      <div><Label>自訂指令（給 AI 的額外說明）</Label><Textarea rows={3} value={sp.customInstructions} onChange={e => u('customInstructions', e.target.value)} placeholder="不要用太多感嘆號，語氣保持平實..." /></div>
+    <div className="space-y-5 pt-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* Left column */}
+        <div className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium">口吻名稱</Label>
+            <Input className="mt-1" value={sp.name} onChange={e => u('name', e.target.value)} placeholder="例：品牌正式風" />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">語氣摘要</Label>
+            <Textarea className="mt-1" rows={4} value={sp.toneSummary} onChange={e => u('toneSummary', e.target.value)} placeholder="口語實在、有溫度，說真話不說場面話..." />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">目標受眾</Label>
+            <Input className="mt-1" value={sp.targetAudience} onChange={e => u('targetAudience', e.target.value)} placeholder="30-50 歲中小企業主" />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">偏好 Hashtag（逗號分隔）</Label>
+            <Input className="mt-1" value={sp.hashtagPrefs.join(', ')} onChange={e => u('hashtagPrefs', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">避免用語（逗號分隔）</Label>
+            <Input className="mt-1" value={sp.avoidWords.join(', ')} onChange={e => u('avoidWords', e.target.value.split(',').map(s => s.trim()).filter(Boolean))} placeholder="護城河, 本質, 真正的..." />
+          </div>
+        </div>
+        {/* Right column */}
+        <div className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium">範例貼文</Label>
+            <p className="text-xs text-gray-400 mt-0.5 mb-1">貼上 2-3 篇代表性貼文，用 --- 分隔</p>
+            <Textarea className="mt-1 font-mono text-sm" rows={10} value={sp.samplePosts.join('\n---\n')} onChange={e => u('samplePosts', e.target.value.split('\n---\n').filter(Boolean))} placeholder="第一篇範例貼文...\n---\n第二篇範例貼文..." />
+          </div>
+          <div>
+            <Label className="text-sm font-medium">自訂指令（給 AI 的額外說明）</Label>
+            <Textarea className="mt-1" rows={5} value={sp.customInstructions} onChange={e => u('customInstructions', e.target.value)} placeholder="不要用太多感嘆號，語氣保持平實..." />
+          </div>
+        </div>
+      </div>
       <Button className="w-full" onClick={() => onSave(sp)}>儲存口吻設定</Button>
     </div>
   )
