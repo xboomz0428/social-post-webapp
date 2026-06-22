@@ -25,7 +25,7 @@ export default function RootLayout({
           <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
         </CloudSyncProvider>
         <footer className="border-t mt-12 py-4 text-center text-xs text-gray-400">
-          Social Post Manager v3.0.0 · <a href="/changelog" className="underline hover:text-gray-600">改版記錄</a>
+          Social Post Manager v3.1.0 · <a href="/changelog" className="underline hover:text-gray-600">改版記錄</a>
         </footer>
         <Toaster richColors position="top-right" />
       </body>

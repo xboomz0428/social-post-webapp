@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { getAIConfig, saveAIConfig, getAppSettings, saveAppSettings, getPosts, savePost } from '@/lib/storage'
+import { getAIConfig, saveAIConfig, getAppSettings, saveAppSettings, getPosts, savePost, getAccounts, saveAccount, getStyleProfilesByAccount } from '@/lib/storage'
 import type { AIConfig, AIProvider, AppSettings } from '@/lib/types'
 import { AI_PROVIDER_LABELS, AI_MODELS } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -11,9 +11,10 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
-import { Eye, EyeOff, Save, Zap, Check, X, Loader2, ArrowUpFromLine, ArrowDownToLine, RefreshCw } from 'lucide-react'
+import { Eye, EyeOff, Save, Zap, Check, X, Loader2, ArrowUpFromLine, ArrowDownToLine, RefreshCw, Download, Upload, Cloud, HardDrive } from 'lucide-react'
 import SetupGuide from '@/components/SetupGuide'
 import { AI_PROVIDER_GUIDES, GOOGLE_SHEETS_GUIDE } from '@/lib/setup-guides'
+import { pullAllFromCloud, syncAccountToCloud, syncStyleToCloud } from '@/lib/cloud-sync'
 
 function MaskInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   const [show, setShow] = useState(false)
@@ -335,6 +336,214 @@ export default function SettingsPage() {
             title={GOOGLE_SHEETS_GUIDE.title}
             steps={GOOGLE_SHEETS_GUIDE.steps}
           />
+        </CardContent>
+      </Card>
+
+      <Separator />
+
+      {/* Cloud Backup & Restore */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">☁️ 雲端備份管理</CardTitle>
+          <CardDescription>備份所有資料到電腦，或在不同裝置間同步</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Backup to computer */}
+            <Button
+              variant="outline"
+              className="gap-2 h-auto py-3 flex-col items-start"
+              onClick={() => {
+                const allAccounts = getAccounts()
+                const allPosts = getPosts()
+                const allStyles: unknown[] = []
+                allAccounts.forEach(acc => {
+                  getStyleProfilesByAccount(acc.id).forEach(sp => allStyles.push(sp))
+                })
+                const backup = {
+                  version: '3.0.0',
+                  exportedAt: new Date().toISOString(),
+                  accounts: allAccounts,
+                  posts: allPosts,
+                  styles: allStyles,
+                  aiConfig: getAIConfig(),
+                  appSettings: getAppSettings(),
+                }
+                const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `social-post-backup-${new Date().toISOString().slice(0, 10)}.json`
+                a.click()
+                URL.revokeObjectURL(url)
+                toast.success('備份檔案已下載')
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                <span className="font-medium">備份到電腦</span>
+              </div>
+              <span className="text-xs text-gray-400 font-normal">下載 JSON 檔（含帳號、口吻、貼文、AI 設定）</span>
+            </Button>
+
+            {/* Restore from computer */}
+            <Button
+              variant="outline"
+              className="gap-2 h-auto py-3 flex-col items-start"
+              onClick={() => {
+                const input = document.createElement('input')
+                input.type = 'file'
+                input.accept = '.json'
+                input.onchange = async (e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0]
+                  if (!file) return
+                  try {
+                    const text = await file.text()
+                    const backup = JSON.parse(text)
+                    if (!backup.accounts && !backup.posts) {
+                      toast.error('無效的備份檔案')
+                      return
+                    }
+                    if (!confirm(`確定要從備份檔案還原？\n帳號：${backup.accounts?.length || 0} 個\n貼文：${backup.posts?.length || 0} 篇\n口吻：${backup.styles?.length || 0} 組\n\n這會合併到現有資料（不會刪除現有的）`)) return
+
+                    let imported = 0
+                    if (backup.accounts) {
+                      const existing = new Set(getAccounts().map((a: {id:string}) => a.id))
+                      for (const acc of backup.accounts) {
+                        if (!existing.has(acc.id)) { saveAccount(acc); imported++ }
+                      }
+                    }
+                    if (backup.posts) {
+                      const existing = new Set(getPosts().map((p: {id:string}) => p.id))
+                      for (const post of backup.posts) {
+                        if (!existing.has(post.id)) { savePost(post); imported++ }
+                      }
+                    }
+                    if (backup.styles) {
+                      for (const sp of backup.styles) {
+                        const { saveStyleProfile } = await import('@/lib/storage')
+                        saveStyleProfile(sp)
+                        imported++
+                      }
+                    }
+                    if (backup.aiConfig) {
+                      saveAIConfig(backup.aiConfig)
+                    }
+                    toast.success(`已還原 ${imported} 筆資料`)
+                    window.location.reload()
+                  } catch {
+                    toast.error('備份檔案格式錯誤')
+                  }
+                }
+                input.click()
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                <span className="font-medium">從電腦還原</span>
+              </div>
+              <span className="text-xs text-gray-400 font-normal">上傳 JSON 備份檔，合併到現有資料</span>
+            </Button>
+
+            {/* Push all to cloud */}
+            <Button
+              variant="outline"
+              className="gap-2 h-auto py-3 flex-col items-start"
+              disabled={syncing !== null}
+              onClick={async () => {
+                if (!confirm('確定要將本機所有資料（帳號 + 口吻 + 貼文）推送到 Google Sheets？')) return
+                setSyncing('push')
+                try {
+                  const allAccounts = getAccounts()
+                  const allPosts = getPosts()
+
+                  // Push accounts
+                  for (const acc of allAccounts) {
+                    await syncAccountToCloud(acc)
+                  }
+
+                  // Push style profiles
+                  for (const acc of allAccounts) {
+                    const styles = getStyleProfilesByAccount(acc.id)
+                    for (const sp of styles) {
+                      await syncStyleToCloud(sp)
+                    }
+                  }
+
+                  // Push posts
+                  const res = await fetch('/api/sheets/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'push', posts: allPosts }),
+                  })
+                  const data = await res.json()
+
+                  toast.success(`已推送到雲端：${allAccounts.length} 帳號、${data.count || allPosts.length} 貼文`)
+                  setSyncStatus(prev => ({ ...prev, lastSync: new Date().toLocaleString('zh-TW') }))
+                } catch {
+                  toast.error('推送失敗')
+                }
+                setSyncing(null)
+              }}
+            >
+              <div className="flex items-center gap-2">
+                {syncing === 'push' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Cloud className="h-4 w-4" />}
+                <span className="font-medium">全部寫入雲端</span>
+              </div>
+              <span className="text-xs text-gray-400 font-normal">推送帳號 + 口吻 + 貼文到 Google Sheets</span>
+            </Button>
+
+            {/* Pull all from cloud */}
+            <Button
+              variant="outline"
+              className="gap-2 h-auto py-3 flex-col items-start"
+              disabled={syncing !== null}
+              onClick={async () => {
+                if (!confirm('從雲端拉取所有資料？會合併到本機（不會刪除現有的）')) return
+                setSyncing('pull')
+                try {
+                  const cloud = await pullAllFromCloud()
+                  if (!cloud) { toast.error('拉取失敗'); setSyncing(null); return }
+
+                  let imported = 0
+                  const existingAccIds = new Set(getAccounts().map(a => a.id))
+                  for (const acc of cloud.accounts) {
+                    if (!existingAccIds.has(acc.id)) { saveAccount(acc); imported++ }
+                  }
+                  const existingPostIds = new Set(getPosts().map(p => p.id))
+                  for (const post of cloud.posts) {
+                    if (!existingPostIds.has(post.id)) { savePost(post); imported++ }
+                    else {
+                      const local = getPosts().find(p => p.id === post.id)
+                      if (local && post.updatedAt > local.updatedAt) { savePost({ ...local, ...post }) }
+                    }
+                  }
+                  const { saveStyleProfile } = await import('@/lib/storage')
+                  for (const sp of cloud.styles) {
+                    saveStyleProfile(sp)
+                    imported++
+                  }
+
+                  toast.success(`已從雲端拉取 ${imported} 筆資料`)
+                  setSyncStatus(prev => ({ ...prev, lastSync: new Date().toLocaleString('zh-TW') }))
+                  if (imported > 0) window.location.reload()
+                } catch {
+                  toast.error('拉取失敗')
+                }
+                setSyncing(null)
+              }}
+            >
+              <div className="flex items-center gap-2">
+                {syncing === 'pull' ? <Loader2 className="h-4 w-4 animate-spin" /> : <HardDrive className="h-4 w-4" />}
+                <span className="font-medium">全部從雲端拉回</span>
+              </div>
+              <span className="text-xs text-gray-400 font-normal">從 Google Sheets 拉取帳號 + 口吻 + 貼文</span>
+            </Button>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
+            💡 <strong>跨電腦使用</strong>：在新電腦第一次開啟 App 時會自動從雲端拉資料。如果沒有自動拉，請手動點「全部從雲端拉回」。AI API Keys 因安全考量不存雲端，需在每台電腦的「設定」頁面重新輸入，或用「備份到電腦」→「從電腦還原」搬移。
+          </div>
         </CardContent>
       </Card>
 
