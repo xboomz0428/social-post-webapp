@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import PlatformSelector from './PlatformSelector'
 import RichTextEditor from './RichTextEditor'
 import PlatformPreview from './PlatformPreview'
-import { Save, Send, Sparkles, Loader2, Rocket, AlertCircle, Hash, Eye, ImagePlus } from 'lucide-react'
+import { Save, Send, Sparkles, Loader2, Rocket, AlertCircle, Hash, Eye, ImagePlus, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { FORMULA_TEMPLATES } from '@/lib/formulas'
 
@@ -50,6 +50,13 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
   // AI Image
   const [generatingImage, setGeneratingImage] = useState(false)
   const [imagePrompt, setImagePrompt] = useState('')
+  // Compliance check
+  const [complianceChecking, setComplianceChecking] = useState(false)
+  const [complianceResult, setComplianceResult] = useState<{
+    pass: boolean; riskLevel: 'safe' | 'warning' | 'violation'
+    issues: { text: string; law: string; reason: string; suggestion: string }[]
+    summary: string
+  } | null>(null)
   // Hashtag + Preview
   const [suggestedHashtags, setSuggestedHashtags] = useState<string[]>([])
   const [loadingHashtags, setLoadingHashtags] = useState(false)
@@ -116,7 +123,10 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
 
       setContent(`<p>${data.content.replace(/\n/g, '</p><p>')}</p>`)
       setContentText(data.content)
-      toast.success(`AI 已生成內容（${AI_PROVIDER_LABELS[aiProvider]}）`)
+      toast.success(`AI 已生成內容（${AI_PROVIDER_LABELS[aiProvider]}），正在進行合規檢查...`)
+      setGenerating(false)
+      runComplianceCheck(data.content)
+      return
     } catch (err: unknown) {
       toast.error(`生成失敗：${err instanceof Error ? err.message : '未知錯誤'}`)
     }
@@ -152,6 +162,47 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
       toast.error(`圖片生成失敗：${err instanceof Error ? err.message : '未知錯誤'}`)
     }
     setGeneratingImage(false)
+  }
+
+  async function runComplianceCheck(text?: string) {
+    const cfg = getAIConfig()
+    const providerCfg = cfg[aiProvider]
+    if (!providerCfg.apiKey) {
+      toast.error('請先設定 AI API Key 才能進行合規檢查')
+      return
+    }
+    const checkText = text || contentText
+    if (!checkText.trim()) {
+      toast.error('沒有內容可以檢查')
+      return
+    }
+    setComplianceChecking(true)
+    setComplianceResult(null)
+    try {
+      const res = await fetch('/api/ai/compliance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: aiProvider,
+          apiKey: providerCfg.apiKey,
+          model: aiModel || providerCfg.model,
+          content: checkText,
+        }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setComplianceResult(data)
+      if (data.riskLevel === 'safe') {
+        toast.success('合規檢查通過！')
+      } else if (data.riskLevel === 'warning') {
+        toast.warning('合規檢查發現潛在風險，請檢視')
+      } else {
+        toast.error('合規檢查發現違規內容！請修改')
+      }
+    } catch (err: unknown) {
+      toast.error(`合規檢查失敗：${err instanceof Error ? err.message : '未知錯誤'}`)
+    }
+    setComplianceChecking(false)
   }
 
   async function handlePublishNow() {
@@ -401,7 +452,63 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
                 <Eye className="h-3.5 w-3.5" />
                 {showPreview ? '隱藏預覽' : '跨平台預覽'}
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border-orange-300 text-orange-700 hover:bg-orange-50"
+                disabled={complianceChecking || !contentText.trim()}
+                onClick={() => runComplianceCheck()}
+              >
+                {complianceChecking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                法規合規檢查
+              </Button>
             </div>
+
+            {/* Compliance Result */}
+            {complianceResult && (
+              <Card className={`border-2 ${
+                complianceResult.riskLevel === 'safe' ? 'border-green-300 bg-green-50/50' :
+                complianceResult.riskLevel === 'warning' ? 'border-yellow-300 bg-yellow-50/50' :
+                'border-red-300 bg-red-50/50'
+              }`}>
+                <CardContent className="pt-4 pb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShieldCheck className={`h-4 w-4 ${
+                      complianceResult.riskLevel === 'safe' ? 'text-green-600' :
+                      complianceResult.riskLevel === 'warning' ? 'text-yellow-600' :
+                      'text-red-600'
+                    }`} />
+                    <span className={`text-sm font-medium ${
+                      complianceResult.riskLevel === 'safe' ? 'text-green-700' :
+                      complianceResult.riskLevel === 'warning' ? 'text-yellow-700' :
+                      'text-red-700'
+                    }`}>
+                      {complianceResult.riskLevel === 'safe' ? '✅ 合規通過' :
+                       complianceResult.riskLevel === 'warning' ? '⚠️ 有潛在風險' :
+                       '❌ 發現違規'}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2">{complianceResult.summary}</p>
+                  {complianceResult.issues.length > 0 && (
+                    <div className="space-y-2 mt-3">
+                      {complianceResult.issues.map((issue, i) => (
+                        <div key={i} className="bg-white rounded-lg p-3 border text-sm">
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                              <div><span className="font-medium text-red-700">違規片段：</span><span className="bg-red-100 px-1 rounded">{issue.text}</span></div>
+                              <div><span className="font-medium text-gray-600">法規：</span>{issue.law}</div>
+                              <div><span className="font-medium text-gray-600">原因：</span>{issue.reason}</div>
+                              <div><span className="font-medium text-green-700">建議改為：</span><span className="bg-green-100 px-1 rounded">{issue.suggestion}</span></div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Hashtag suggestions */}
             {suggestedHashtags.length > 0 && (
