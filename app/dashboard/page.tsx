@@ -150,7 +150,10 @@ export default function StatsDashboardPage() {
   const stats = useMemo(() => {
     const now = new Date()
     const thisMonth = posts.filter(p => {
-      const d = new Date(p.publishedAt || p.createdAt)
+      const raw = p.scheduledAt || p.publishedAt || p.createdAt
+      if (!raw) return false
+      const d = new Date(raw)
+      if (isNaN(d.getTime())) return false
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
     })
 
@@ -170,7 +173,10 @@ export default function StatsDashboardPage() {
     eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56)
     const weekMap = new Map<string, number>()
     posts.forEach(p => {
-      const d = new Date(p.publishedAt || p.createdAt)
+      const raw = p.scheduledAt || p.publishedAt || p.createdAt
+      if (!raw) return
+      const d = new Date(raw)
+      if (isNaN(d.getTime())) return
       if (d >= eightWeeksAgo) {
         const wk = weekKey(d)
         weekMap.set(wk, (weekMap.get(wk) || 0) + 1)
@@ -192,7 +198,10 @@ export default function StatsDashboardPage() {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
     const dayReach = new Map<string, number>()
     posts.forEach(p => {
-      const d = new Date(p.publishedAt || p.createdAt)
+      const raw = p.scheduledAt || p.publishedAt || p.createdAt
+      if (!raw) return
+      const d = new Date(raw)
+      if (isNaN(d.getTime())) return
       if (d >= thirtyDaysAgo) {
         const key = `${d.getMonth() + 1}/${d.getDate()}`
         dayReach.set(key, (dayReach.get(key) || 0) + num(p.stats.reach))
@@ -287,6 +296,16 @@ export default function StatsDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Hint when no stats */}
+      {stats.totalReach === 0 && posts.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+          <p className="font-medium">觸及 / 互動數據尚未填入</p>
+          <p className="text-amber-600 mt-1">
+            目前平台 API 不會自動回傳成效數據。你可以在編輯貼文時手動填入讚數、留言、觸及等資訊，儀表板就會顯示分析圖表。
+          </p>
+        </div>
+      )}
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

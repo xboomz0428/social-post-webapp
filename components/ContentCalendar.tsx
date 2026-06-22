@@ -58,14 +58,17 @@ export default function ContentCalendar({ posts, onCopy }: Props) {
   const postsByDate = useMemo(() => {
     const map = new Map<string, Post[]>()
     posts.forEach(post => {
-      const dateStr = post.scheduledAt
-        ? format(parseISO(post.scheduledAt), 'yyyy-MM-dd')
-        : post.createdAt
-          ? format(parseISO(post.createdAt), 'yyyy-MM-dd')
-          : null
-      if (!dateStr) return
-      if (!map.has(dateStr)) map.set(dateStr, [])
-      map.get(dateStr)!.push(post)
+      try {
+        const raw = post.scheduledAt || post.createdAt
+        if (!raw) return
+        const parsed = parseISO(raw)
+        if (isNaN(parsed.getTime())) return
+        const dateStr = format(parsed, 'yyyy-MM-dd')
+        if (!map.has(dateStr)) map.set(dateStr, [])
+        map.get(dateStr)!.push(post)
+      } catch {
+        // skip posts with unparseable dates
+      }
     })
     return map
   }, [posts])
