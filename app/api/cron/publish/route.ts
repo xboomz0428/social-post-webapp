@@ -67,11 +67,15 @@ async function publishToplatform(
 }
 
 export async function GET(request: Request) {
-  // ── Security: verify CRON_SECRET ────────────────────────────────
+  // ── Security: verify CRON_SECRET (header or query param) ───────
   const cronSecret = process.env.CRON_SECRET
   if (cronSecret) {
     const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    const url = new URL(request.url)
+    const querySecret = url.searchParams.get('secret')
+    const isVercelCron = authHeader === `Bearer ${cronSecret}`
+    const isExternalCron = querySecret === cronSecret
+    if (!isVercelCron && !isExternalCron) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 },

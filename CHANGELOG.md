@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.4.2 — 2026-06-22
+
+### 外部 Cron 支援
+
+- **Cron endpoint 支援 query param 認證**：除了 `Authorization: Bearer` header，也支援 `?secret=xxx` 查詢參數認證，方便外部 Cron 服務呼叫
+- **新增 `CRON_SECRET` Vercel 環境變數**：保護自動發佈 endpoint 不被未授權呼叫
+
+---
+
 ## v2.4.1 — 2026-06-22
 
 ### 修復自動排程發佈
