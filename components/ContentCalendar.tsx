@@ -1,10 +1,11 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import type { Post, Platform, PostStatus } from '@/lib/types'
 import { PLATFORM_LABELS, STATUS_LABELS } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, PenSquare, MessageSquare, Copy } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { savePost } from '@/lib/storage'
 import { toast } from 'sonner'
 import {
@@ -41,8 +42,10 @@ interface Props {
 }
 
 export default function ContentCalendar({ posts, onCopy }: Props) {
+  const router = useRouter()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [dragPostId, setDragPostId] = useState<string | null>(null)
+  const didDrag = useRef(false)
 
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentMonth)
@@ -175,21 +178,24 @@ export default function ContentCalendar({ posts, onCopy }: Props) {
                       <div
                         key={post.id}
                         draggable
+                        onMouseDown={() => { didDrag.current = false }}
                         onDragStart={e => {
+                          didDrag.current = true
                           e.dataTransfer.setData('text/plain', post.id)
                           e.dataTransfer.effectAllowed = 'move'
                           setDragPostId(post.id)
                         }}
                         onDragEnd={() => setDragPostId(null)}
-                        className={`border-l-[3px] rounded-r px-1.5 py-1 cursor-grab active:cursor-grabbing hover:shadow-sm transition-shadow group/card ${bgColor}`}
+                        onClick={() => {
+                          if (!didDrag.current) router.push(`/editor/${post.id}`)
+                        }}
+                        className={`border-l-[3px] rounded-r px-1.5 py-1 cursor-pointer hover:shadow-md transition-shadow group/card ${bgColor}`}
                       >
                         <div className="flex items-center gap-1">
                           <span className="text-[10px]">{statusInfo.icon}</span>
-                          <Link href={`/editor/${post.id}`} className="flex-1 min-w-0">
-                            <span className="text-[11px] font-medium truncate block">
-                              {post.title || post.contentText?.slice(0, 15) || '無標題'}
-                            </span>
-                          </Link>
+                          <span className="text-[11px] font-medium truncate flex-1">
+                            {post.title || post.contentText?.slice(0, 15) || '無標題'}
+                          </span>
                           {onCopy && (
                             <button
                               className="opacity-0 group-hover/card:opacity-100 text-gray-400 hover:text-blue-600 transition-opacity"
