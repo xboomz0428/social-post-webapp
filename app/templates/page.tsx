@@ -27,10 +27,15 @@ const CATEGORY_LABELS: Record<string, string> = {
 export default function TemplatesPage() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<(typeof FORMULA_TEMPLATES)[number] | null>(null)
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
 
-  const filtered = FORMULA_TEMPLATES.filter(f =>
-    f.name.includes(search) || f.code.toLowerCase().includes(search.toLowerCase()) || f.description.includes(search)
-  )
+  const filtered = FORMULA_TEMPLATES.filter(f => {
+    const matchSearch = f.name.includes(search) || f.code.toLowerCase().includes(search.toLowerCase()) || f.description.includes(search)
+    const matchCategory = categoryFilter === 'all' || f.category === categoryFilter
+    return matchSearch && matchCategory
+  })
+
+  const categories = Array.from(new Set(FORMULA_TEMPLATES.map(f => f.category)))
 
   return (
     <div className="space-y-6">
@@ -39,14 +44,64 @@ export default function TemplatesPage() {
         <p className="text-gray-500 text-sm mt-1">選擇驗證過的貼文公式，套用到你的內容</p>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <Input
-          className="pl-10"
-          placeholder="搜尋公式名稱、代號..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+      {/* Usage Guide */}
+      <Card className="border-blue-200 bg-blue-50/30">
+        <CardContent className="pt-4 pb-3">
+          <h3 className="font-medium text-sm text-blue-900 mb-2">如何使用公式模板？</h3>
+          <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+            <li>瀏覽或搜尋適合的公式 → 點擊卡片查看詳情</li>
+            <li>「複製骨架」可貼入自己的文案 → 「用此公式新增貼文」直接跳到編輯器</li>
+            <li>搭配 AI 生成，選擇公式後 AI 會依據骨架結構自動產出貼文</li>
+          </ol>
+          <div className="flex items-center gap-4 mt-3 text-xs text-blue-700">
+            <span className="font-medium">難度指標：</span>
+            <span className="flex items-center gap-1">
+              {[1,2,3,4,5].map(n => (
+                <span key={n} className="flex items-center gap-0.5">
+                  <span className="flex gap-px">{Array.from({length:5}).map((_,i) => (
+                    <span key={i} className={`w-1 h-3 rounded-full ${i < n ? 'bg-blue-500' : 'bg-blue-200'}`} />
+                  ))}</span>
+                  <span className="ml-0.5">{['入門','基礎','中級','進階','專家'][n-1]}</span>
+                  {n < 5 && <span className="mx-1 text-blue-300">|</span>}
+                </span>
+              ))}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Search + Category Filter */}
+      <div className="flex gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            className="pl-10"
+            placeholder="搜尋公式名稱、代號..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-1.5 flex-wrap">
+          <button
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${categoryFilter === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            onClick={() => setCategoryFilter('all')}
+          >
+            全部 ({FORMULA_TEMPLATES.length})
+          </button>
+          {categories.map(cat => (
+            <button
+              key={cat}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${categoryFilter === cat ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+              onClick={() => setCategoryFilter(cat)}
+            >
+              {CATEGORY_LABELS[cat] ?? cat} ({FORMULA_TEMPLATES.filter(f => f.category === cat).length})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="text-xs text-gray-400">
+        顯示 {filtered.length} / {FORMULA_TEMPLATES.length} 個公式
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

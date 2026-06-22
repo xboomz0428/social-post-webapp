@@ -3,8 +3,10 @@ import { useMemo, useState } from 'react'
 import type { Post, Platform, PostStatus } from '@/lib/types'
 import { PLATFORM_LABELS, STATUS_LABELS } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, ChevronRight, PenSquare, MessageSquare } from 'lucide-react'
+import { ChevronLeft, ChevronRight, PenSquare, MessageSquare, Copy } from 'lucide-react'
 import Link from 'next/link'
+import { savePost } from '@/lib/storage'
+import { toast } from 'sonner'
 import {
   addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   eachDayOfInterval, format, isSameMonth, isSameDay, isToday, parseISO,
@@ -34,10 +36,13 @@ const STATUS_INDICATOR: Record<PostStatus, { icon: string; className: string }> 
 
 interface Props {
   posts: Post[]
+  onCopy?: (post: Post) => void
+  onPostsChange?: () => void
 }
 
-export default function ContentCalendar({ posts }: Props) {
+export default function ContentCalendar({ posts, onCopy }: Props) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [dragPostId, setDragPostId] = useState<string | null>(null)
 
   const calendarDays = useMemo(() => {
     const monthStart = startOfMonth(currentMonth)
@@ -119,7 +124,25 @@ export default function ContentCalendar({ posts }: Props) {
                 key={i}
                 className={`min-h-[110px] border-b border-r p-1.5 transition-colors ${
                   !inMonth ? 'bg-gray-50/50' : 'bg-white'
-                } ${today ? 'ring-2 ring-inset ring-blue-400' : ''}`}
+                } ${today ? 'ring-2 ring-inset ring-blue-400' : ''} ${dragPostId ? 'hover:bg-blue-50/50' : ''}`}
+                onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                onDrop={e => {
+                  e.preventDefault()
+                  const postId = e.dataTransfer.getData('text/plain')
+                  if (!postId) return
+                  const post = posts.find(p => p.id === postId)
+                  if (!post) return
+                  const oldDate = post.scheduledAt ? parseISO(post.scheduledAt) : null
+                  const time = oldDate ? format(oldDate, 'HH:mm:ss') : '09:00:00'
+                  const newScheduled = `${dateKey}T${time}`
+                  post.scheduledAt = newScheduled
+                  post.updatedAt = new Date().toISOString()
+                  if (post.status === 'draft') post.status = 'scheduled'
+                  savePost(post)
+                  setDragPostId(null)
+                  toast.success(`已移至 ${format(day, 'M/d')}`)
+                  window.location.reload()
+                }}
               >
                 {/* Date number */}
                 <div className="flex items-center justify-between mb-1">
@@ -149,14 +172,34 @@ export default function ContentCalendar({ posts }: Props) {
                     const bgColor = mainPlatform ? PLATFORM_BG_COLORS[mainPlatform] : 'border-l-gray-300 bg-gray-50'
 
                     return (
-                      <Link key={post.id} href={`/editor/${post.id}`}>
-                        <div className={`border-l-[3px] rounded-r px-1.5 py-1 cursor-pointer hover:shadow-sm transition-shadow ${bgColor}`}>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[10px]">{statusInfo.icon}</span>
-                            <span className="text-[11px] font-medium truncate flex-1">
+                      <div
+                        key={post.id}
+                        draggable
+                        onDragStart={e => {
+                          e.dataTransfer.setData('text/plain', post.id)
+                          e.dataTransfer.effectAllowed = 'move'
+                          setDragPostId(post.id)
+                        }}
+                        onDragEnd={() => setDragPostId(null)}
+                        className={`border-l-[3px] rounded-r px-1.5 py-1 cursor-grab active:cursor-grabbing hover:shadow-sm transition-shadow group/card ${bgColor}`}
+                      >
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px]">{statusInfo.icon}</span>
+                          <Link href={`/editor/${post.id}`} className="flex-1 min-w-0">
+                            <span className="text-[11px] font-medium truncate block">
                               {post.title || post.contentText?.slice(0, 15) || '無標題'}
                             </span>
-                          </div>
+                          </Link>
+                          {onCopy && (
+                            <button
+                              className="opacity-0 group-hover/card:opacity-100 text-gray-400 hover:text-blue-600 transition-opacity"
+                              onClick={e => { e.stopPropagation(); onCopy(post) }}
+                              title="複製貼文"
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
                           {/* Platform dots */}
                           <div className="flex items-center gap-1 mt-0.5">
                             {post.platforms.map(p => (
@@ -181,8 +224,7 @@ export default function ContentCalendar({ posts }: Props) {
                               ❤️{post.stats.likes ?? 0} 💬{post.stats.comments ?? 0} 🔗{post.stats.shares ?? 0}
                             </div>
                           )}
-                        </div>
-                      </Link>
+                      </div>
                     )
                   })}
                   {dayPosts.length > 3 && (

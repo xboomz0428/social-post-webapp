@@ -13,7 +13,7 @@ import { Separator } from '@/components/ui/separator'
 import PlatformSelector from './PlatformSelector'
 import RichTextEditor from './RichTextEditor'
 import PlatformPreview from './PlatformPreview'
-import { Save, Send, Sparkles, Loader2, Rocket, AlertCircle, Hash, Eye } from 'lucide-react'
+import { Save, Send, Sparkles, Loader2, Rocket, AlertCircle, Hash, Eye, ImagePlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { FORMULA_TEMPLATES } from '@/lib/formulas'
 
@@ -46,6 +46,9 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
   // Publishing
   const [publishing, setPublishing] = useState(false)
   const [publishResults, setPublishResults] = useState<{ platform: string; ok: boolean; message: string }[]>([])
+  // AI Image
+  const [generatingImage, setGeneratingImage] = useState(false)
+  const [imagePrompt, setImagePrompt] = useState('')
   // Hashtag + Preview
   const [suggestedHashtags, setSuggestedHashtags] = useState<string[]>([])
   const [loadingHashtags, setLoadingHashtags] = useState(false)
@@ -114,6 +117,37 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
       toast.error(`生成失敗：${err instanceof Error ? err.message : '未知錯誤'}`)
     }
     setGenerating(false)
+  }
+
+  async function handleAIImage() {
+    const cfg = getAIConfig()
+    const providerCfg = cfg.openai
+    if (!providerCfg.apiKey) {
+      toast.error('AI 圖片生成需要 OpenAI API Key（DALL-E 3），請先到設定頁面設定')
+      return
+    }
+    const prompt = imagePrompt.trim() || aiPrompt.trim() || contentText.slice(0, 200)
+    if (!prompt) {
+      toast.error('請輸入圖片描述或先生成文字內容')
+      return
+    }
+    setGeneratingImage(true)
+    try {
+      const res = await fetch('/api/ai/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'openai', apiKey: providerCfg.apiKey, prompt }),
+      })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      if (data.url) {
+        setImages(prev => [...prev, data.url])
+        toast.success('AI 圖片已生成並加入貼文')
+      }
+    } catch (err: unknown) {
+      toast.error(`圖片生成失敗：${err instanceof Error ? err.message : '未知錯誤'}`)
+    }
+    setGeneratingImage(false)
   }
 
   async function handlePublishNow() {
@@ -273,6 +307,26 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
               >
                 {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 生成
+              </Button>
+            </div>
+            <div className="flex gap-2 items-end">
+              <div className="flex-1">
+                <Label className="text-xs">AI 圖片描述（選填，留空用題材）</Label>
+                <Input
+                  className="h-9"
+                  placeholder="描述想要的圖片風格..."
+                  value={imagePrompt}
+                  onChange={e => setImagePrompt(e.target.value)}
+                />
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleAIImage}
+                disabled={generatingImage}
+                className="gap-2 shrink-0 border-purple-300 text-purple-700 hover:bg-purple-50"
+              >
+                {generatingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                AI 生成圖片
               </Button>
             </div>
           </CardContent>

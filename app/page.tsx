@@ -1,13 +1,13 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { getPosts, deletePost } from '@/lib/storage'
+import { getPosts, deletePost, createPost, savePost } from '@/lib/storage'
 import { Post, PLATFORM_LABELS, STATUS_LABELS, STATUS_COLORS } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { PenSquare, Trash2, Plus, Calendar, List, MessageSquare } from 'lucide-react'
+import { PenSquare, Trash2, Plus, Calendar, List, MessageSquare, Copy } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -38,6 +38,24 @@ export default function DashboardPage() {
     deletePost(id)
     setPosts(p => p.filter(post => post.id !== id))
     toast.success('已刪除')
+  }
+
+  function handleCopy(post: Post) {
+    const newPost = createPost({
+      accountId: post.accountId,
+      title: `${post.title} (複製)`,
+      content: post.content,
+      contentText: post.contentText,
+      images: [...post.images],
+      platforms: [...post.platforms],
+      formula: post.formula,
+      dayNumber: post.dayNumber,
+      notes: post.notes,
+      status: 'draft',
+    })
+    savePost(newPost)
+    setPosts(p => [newPost, ...p])
+    toast.success('已複製貼文為草稿')
   }
 
   const scheduled = posts.filter(p => p.status === 'scheduled')
@@ -93,7 +111,7 @@ export default function DashboardPage() {
 
       {/* Calendar or List view */}
       {view === 'calendar' ? (
-        <ContentCalendar posts={posts} />
+        <ContentCalendar posts={posts} onCopy={handleCopy} />
       ) : (
         <Card>
           <CardHeader className="pb-3">
@@ -178,6 +196,15 @@ export default function DashboardPage() {
 
                     {/* Actions */}
                     <div className="flex gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                        onClick={() => handleCopy(post)}
+                        title="複製貼文"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
                       <Link href={`/editor/${post.id}`}>
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                           <PenSquare className="h-4 w-4" />
