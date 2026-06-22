@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { getAccounts, saveAccount, deleteAccount, createAccount, getStyleProfile, saveStyleProfile, createStyleProfile } from '@/lib/storage'
+import { getAccounts, saveAccount, deleteAccount, createAccount, getStyleProfilesByAccount, saveStyleProfile, createStyleProfile, deleteStyleProfile } from '@/lib/storage'
 import type { SocialAccount, Platform, StyleProfile } from '@/lib/types'
 import { PLATFORM_LABELS } from '@/lib/types'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,6 +22,7 @@ export default function AccountsPage() {
   const [accounts, setAccounts] = useState<SocialAccount[]>([])
   const [editing, setEditing] = useState<SocialAccount | null>(null)
   const [styleEditing, setStyleEditing] = useState<StyleProfile | null>(null)
+  const [stylesAccount, setStylesAccount] = useState<string | null>(null)
   const [addPlatform, setAddPlatform] = useState<Platform>('facebook')
   const [showAdd, setShowAdd] = useState(false)
 
@@ -50,12 +51,13 @@ export default function AccountsPage() {
     toast.success('已刪除')
   }
 
-  function openStyleEditor(accId: string) {
-    let sp = getStyleProfile(accId)
-    if (!sp) {
-      sp = createStyleProfile(accId)
-      saveStyleProfile(sp)
-    }
+  function openStyleList(accId: string) {
+    setStylesAccount(accId)
+  }
+
+  function handleAddStyle(accId: string) {
+    const sp = createStyleProfile(accId, { name: `口吻 ${getStyleProfilesByAccount(accId).length + 1}` })
+    saveStyleProfile(sp)
     setStyleEditing(sp)
   }
 
@@ -63,6 +65,12 @@ export default function AccountsPage() {
     saveStyleProfile(sp)
     setStyleEditing(null)
     toast.success('口吻設定已儲存')
+  }
+
+  function handleDeleteStyle(id: string) {
+    if (!confirm('確定要刪除這組口吻？')) return
+    deleteStyleProfile(id)
+    toast.success('口吻已刪除')
   }
 
   return (
@@ -113,8 +121,8 @@ export default function AccountsPage() {
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="outline" size="sm" className="gap-1" onClick={() => openStyleEditor(acc.id)}>
-                      <Pencil className="h-3 w-3" />口吻
+                    <Button variant="outline" size="sm" className="gap-1" onClick={() => openStyleList(acc.id)}>
+                      <Pencil className="h-3 w-3" />口吻 ({getStyleProfilesByAccount(acc.id).length})
                     </Button>
                     <Button variant="outline" size="sm" className="gap-1" onClick={() => setEditing(acc)}>
                       <Settings className="h-3 w-3" />設定
@@ -156,7 +164,48 @@ export default function AccountsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Style Profile Dialog */}
+      {/* Style Profiles List Dialog */}
+      <Dialog open={!!stylesAccount} onOpenChange={open => { if (!open) setStylesAccount(null) }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>口吻管理</DialogTitle>
+          </DialogHeader>
+          {stylesAccount && (() => {
+            const profiles = getStyleProfilesByAccount(stylesAccount)
+            const accName = accounts.find(a => a.id === stylesAccount)?.displayName || '帳號'
+            return (
+              <div className="space-y-3 pt-2">
+                <p className="text-sm text-gray-500">{accName} 的口吻設定（{profiles.length} 組）</p>
+                {profiles.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400 text-sm">尚未建立口吻</div>
+                ) : (
+                  <div className="space-y-2">
+                    {profiles.map(sp => (
+                      <div key={sp.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">{sp.name || '未命名口吻'}</div>
+                          <div className="text-xs text-gray-400 truncate">{sp.toneSummary || '尚未設定語氣摘要'}</div>
+                        </div>
+                        <Button variant="outline" size="sm" className="shrink-0" onClick={() => { setStylesAccount(null); setStyleEditing(sp) }}>
+                          編輯
+                        </Button>
+                        <Button variant="ghost" size="sm" className="shrink-0 text-red-400 hover:text-red-600" onClick={() => handleDeleteStyle(sp.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Button className="w-full gap-2" onClick={() => { handleAddStyle(stylesAccount); setStylesAccount(null) }}>
+                  <Plus className="h-4 w-4" /> 新增口吻
+                </Button>
+              </div>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Style Profile Edit Dialog */}
       <Dialog open={!!styleEditing} onOpenChange={open => { if (!open) setStyleEditing(null) }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>口吻 / 風格設定</DialogTitle></DialogHeader>

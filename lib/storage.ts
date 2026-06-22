@@ -168,6 +168,19 @@ export function getStyleProfile(accountId: string): StyleProfile | null {
   return getStyleProfiles().find(sp => sp.accountId === accountId) ?? null
 }
 
+export function getStyleProfilesByAccount(accountId: string): StyleProfile[] {
+  return getStyleProfiles().filter(sp => sp.accountId === accountId)
+}
+
+export function getStyleProfileById(id: string): StyleProfile | null {
+  return getStyleProfiles().find(sp => sp.id === id) ?? null
+}
+
+export function deleteStyleProfile(id: string): void {
+  const list = getStyleProfiles().filter(sp => sp.id !== id)
+  write(KEYS.styleProfiles, list)
+}
+
 export function saveStyleProfile(profile: StyleProfile): void {
   const list = getStyleProfiles()
   const idx = list.findIndex(sp => sp.id === profile.id)

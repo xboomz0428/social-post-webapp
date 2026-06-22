@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import type { Post, PostStatus, Platform, AIProvider, StyleProfile } from '@/lib/types'
 import { AI_PROVIDER_LABELS, AI_MODELS, PLATFORM_LABELS } from '@/lib/types'
-import { getAIConfig, getAccounts, getAppSettings, getStyleProfile } from '@/lib/storage'
+import { getAIConfig, getAccounts, getAppSettings, getStyleProfilesByAccount, getStyleProfileById } from '@/lib/storage'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,6 +37,7 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
   const [notes, setNotes] = useState(initialData?.notes ?? '')
   const [stats, setStats] = useState(initialData?.stats ?? {})
   const [accountId, setAccountId] = useState(initialData?.accountId ?? '')
+  const [styleProfileId, setStyleProfileId] = useState('')
 
   // AI generation
   const [aiPrompt, setAiPrompt] = useState('')
@@ -79,9 +80,12 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
     setGenerating(true)
     try {
       let styleProfile: Partial<StyleProfile> | undefined
-      if (accountId) {
-        const sp = getStyleProfile(accountId)
+      if (styleProfileId) {
+        const sp = getStyleProfileById(styleProfileId)
         if (sp) styleProfile = sp
+      } else if (accountId) {
+        const profiles = getStyleProfilesByAccount(accountId)
+        if (profiles.length > 0) styleProfile = profiles[0]
       }
 
       const formulaObj = FORMULA_TEMPLATES.find(f => f.code === formula)
@@ -472,6 +476,35 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
             </CardContent>
           </Card>
         )}
+
+        {accountId && (() => {
+          const profiles = getStyleProfilesByAccount(accountId)
+          if (profiles.length === 0) return null
+          return (
+            <Card>
+              <CardContent className="pt-4">
+                <Label>口吻風格</Label>
+                <Select value={styleProfileId} onValueChange={v => setStyleProfileId(v ?? '')}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="自動（預設第一組）" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">自動（預設第一組）</SelectItem>
+                    {profiles.map(sp => (
+                      <SelectItem key={sp.id} value={sp.id}>
+                        {sp.name || '未命名口吻'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {styleProfileId && styleProfileId !== 'auto' && (() => {
+                  const sp = profiles.find(p => p.id === styleProfileId)
+                  return sp?.toneSummary ? (
+                    <p className="text-xs text-gray-400 mt-1.5 line-clamp-2">{sp.toneSummary}</p>
+                  ) : null
+                })()}
+              </CardContent>
+            </Card>
+          )
+        })()}
 
         <Card>
           <CardContent className="pt-4">
