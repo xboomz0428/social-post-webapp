@@ -152,6 +152,7 @@ export function createPost(partial: Partial<Post> = {}): Post {
     stats: {},
     aiGenerated: false,
     aiProvider: null,
+    platformPostId: null,
     createdAt: now,
     updatedAt: now,
     ...partial,

@@ -16,6 +16,11 @@ const COL = {
   STATUS: 8,
   SCHEDULED_AT: 9,
   PUBLISHED_AT: 10,
+  LIKES: 11,
+  COMMENTS: 12,
+  SHARES: 13,
+  REACH: 14,
+  PLATFORM_POST_ID: 21,
 } as const
 
 interface PublishResult {
@@ -37,7 +42,7 @@ async function publishToplatform(
   content: string,
   apiKeys: Record<string, string>,
   baseUrl: string,
-): Promise<{ success: boolean; message: string }> {
+): Promise<{ success: boolean; message: string; postId?: string }> {
   try {
     const res = await fetch(`${baseUrl}/api/publish`, {
       method: 'POST',
@@ -57,12 +62,39 @@ async function publishToplatform(
       }
     }
 
-    return { success: true, message: data.postId || 'published' }
+    return { success: true, message: data.postId || 'published', postId: data.postId }
   } catch (err) {
     return {
       success: false,
       message: err instanceof Error ? err.message : 'unknown error',
     }
+  }
+}
+
+async function fetchThreadsInsights(
+  mediaId: string,
+  accessToken: string,
+): Promise<{ likes: number; replies: number; reposts: number; quotes: number; views: number } | null> {
+  try {
+    const res = await fetch(
+      `https://graph.threads.net/v1.0/${mediaId}/insights?metric=views,likes,replies,reposts,quotes&access_token=${encodeURIComponent(accessToken)}`,
+    )
+    const data = await res.json()
+    if (data.error || !data.data) return null
+
+    const metrics: Record<string, number> = {}
+    for (const item of data.data) {
+      metrics[item.name] = item.values?.[0]?.value ?? 0
+    }
+    return {
+      likes: metrics.likes ?? 0,
+      replies: metrics.replies ?? 0,
+      reposts: metrics.reposts ?? 0,
+      quotes: metrics.quotes ?? 0,
+      views: metrics.views ?? 0,
+    }
+  } catch {
+    return null
   }
 }
 
@@ -147,9 +179,9 @@ export async function GET(request: Request) {
       // store encrypted keys in a database or secret manager. For now, the cron
       // attempts to publish using the platform's env-based configuration.
       let allSucceeded = true
+      let platformPostId = ''
 
       for (const platform of platforms) {
-        // Build apiKeys from environment variables for each platform
         const apiKeys = getApiKeysFromEnv(platform)
 
         const result = await publishToplatform(
@@ -169,9 +201,11 @@ export async function GET(request: Request) {
         if (!result.success) {
           allSucceeded = false
         }
+        if (result.postId) {
+          platformPostId = result.postId
+        }
       }
 
-      // Update post status in Google Sheets
       const newStatus = allSucceeded ? 'published' : 'failed'
       const nowISO = now.toISOString()
 
@@ -179,16 +213,51 @@ export async function GET(request: Request) {
         status: newStatus,
         publishedAt: allSucceeded ? nowISO : '',
         updatedAt: nowISO,
+        platformPostId,
       })
+    }
+
+    // ── Fetch Threads Insights for published posts ─────────────────
+    const threadsToken = process.env.THREADS_ACCESS_TOKEN
+    let insightsUpdated = 0
+
+    if (threadsToken) {
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i]
+        if (!row || row.length === 0) continue
+
+        const status = row[COL.STATUS]
+        const platformsStr = row[COL.PLATFORMS] || ''
+        const pPostId = row[COL.PLATFORM_POST_ID]
+        const postId = row[COL.ID]
+
+        if (status !== 'published' || !pPostId) continue
+
+        const platforms = platformsStr.split(',').map((s: string) => s.trim())
+        if (!platforms.includes('threads')) continue
+
+        const insights = await fetchThreadsInsights(pPostId, threadsToken)
+        if (!insights) continue
+
+        await updatePostInSheet(config, postId, {
+          likes: String(insights.likes),
+          comments: String(insights.replies),
+          shares: String(insights.reposts + insights.quotes),
+          reach: String(insights.views),
+          updatedAt: now.toISOString(),
+        })
+        insightsUpdated++
+      }
     }
 
     const publishedCount = results.filter((r) => r.success).length
     const failedCount = results.filter((r) => !r.success).length
 
     return NextResponse.json({
-      message: `Cron completed: ${publishedCount} published, ${failedCount} failed`,
+      message: `Cron completed: ${publishedCount} published, ${failedCount} failed, ${insightsUpdated} insights updated`,
       published: publishedCount,
       failed: failedCount,
+      insightsUpdated,
       results,
       timestamp: now.toISOString(),
     })

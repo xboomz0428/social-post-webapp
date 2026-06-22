@@ -52,7 +52,7 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
   const [generating, setGenerating] = useState(false)
   // Publishing
   const [publishing, setPublishing] = useState(false)
-  const [publishResults, setPublishResults] = useState<{ platform: string; ok: boolean; message: string }[]>([])
+  const [publishResults, setPublishResults] = useState<{ platform: string; ok: boolean; message: string; postId?: string }[]>([])
   // AI Image
   const [generatingImage, setGeneratingImage] = useState(false)
   const [imagePrompt, setImagePrompt] = useState('')
@@ -240,7 +240,7 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
         })
         const data = await res.json()
         if (data.success) {
-          results.push({ platform: PLATFORM_LABELS[platform], ok: true, message: `已發佈${data.url ? ` → ${data.url}` : ''}` })
+          results.push({ platform: PLATFORM_LABELS[platform], ok: true, message: `已發佈${data.url ? ` → ${data.url}` : ''}`, postId: data.postId })
         } else {
           results.push({ platform: PLATFORM_LABELS[platform], ok: false, message: data.error })
         }
@@ -253,6 +253,7 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
     setPublishing(false)
 
     const allOk = results.every(r => r.ok)
+    const publishedPostId = results.find(r => r.ok && r.postId)?.postId || ''
     if (allOk) {
       setStatus('published')
       toast.success('所有平台發佈成功！')
@@ -260,10 +261,10 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
       toast.error('部分平台發佈失敗，請查看結果')
     }
 
-    syncToSheets('published')
+    syncToSheets('published', publishedPostId)
   }
 
-  async function syncToSheets(postStatus: string) {
+  async function syncToSheets(postStatus: string, pPostId?: string) {
     try {
       const account = accounts.find(a => a.id === accountId)
       await fetch('/api/sheets', {
@@ -289,6 +290,7 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
             notes,
             createdAt: initialData?.createdAt || new Date().toISOString(),
             updatedAt: new Date().toISOString(),
+            platformPostId: pPostId || initialData?.platformPostId || '',
           },
         }),
       })
@@ -314,6 +316,7 @@ export default function PostForm({ initialData, onSave, saving, defaultFormula }
       stats,
       aiGenerated: generating ? true : initialData?.aiGenerated,
       aiProvider: generating ? aiProvider : initialData?.aiProvider,
+      platformPostId: initialData?.platformPostId ?? null,
     })
   }
 

@@ -139,6 +139,7 @@ function parsePostRows(rows: string[][]): Post[] {
     },
     aiGenerated: r[16] === 'true',
     aiProvider: r[17] as Post['aiProvider'] || null,
+    platformPostId: r[21] || null,
     createdAt: r[19] || new Date().toISOString(),
     updatedAt: r[20] || new Date().toISOString(),
   }))

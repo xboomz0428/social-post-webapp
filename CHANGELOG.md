@@ -1,5 +1,18 @@
 # Changelog
 
+## v3.3.0 — 2026-06-22
+
+### Threads 成效自動抓取
+
+- **自動抓取 Threads Insights**：Cron 每次執行時，自動對已發佈的 Threads 貼文呼叫 Insights API
+  - 抓取指標：views（觸及）、likes（讚）、replies（留言）、reposts + quotes（分享）
+  - 數據自動寫回 Google Sheets，儀表板即時更新
+- **platformPostId 欄位**：新增「平台貼文 ID」欄位，發佈成功後自動儲存 Threads media ID
+- **Google Sheets 新增欄位 V**：「平台貼文ID」，用於追蹤各平台的原生貼文 ID
+- **手動發佈也會儲存**：從編輯器直接發佈的貼文，同樣會記錄 platformPostId
+
+---
+
 ## v3.2.0 — 2026-06-22
 
 ### 儀表板與日曆修復

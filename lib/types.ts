@@ -100,6 +100,7 @@ export interface Post {
   stats: PostStats
   aiGenerated: boolean
   aiProvider: AIProvider | null
+  platformPostId: string | null  // platform media ID for fetching insights
   createdAt: string
   updatedAt: string
 }
