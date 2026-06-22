@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import CloudSyncProvider from "@/components/CloudSyncProvider";
 import { Toaster } from "@/components/ui/sonner";
 
 const geist = Geist({ subsets: ["latin"] });
@@ -20,9 +21,11 @@ export default function RootLayout({
     <html lang="zh-TW">
       <body className={`${geist.className} bg-gray-50 min-h-screen`}>
         <Navbar />
-        <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
+        <CloudSyncProvider>
+          <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
+        </CloudSyncProvider>
         <footer className="border-t mt-12 py-4 text-center text-xs text-gray-400">
-          Social Post Manager v2.5.1 · <a href="/changelog" className="underline hover:text-gray-600">改版記錄</a>
+          Social Post Manager v3.0.0 · <a href="/changelog" className="underline hover:text-gray-600">改版記錄</a>
         </footer>
         <Toaster richColors position="top-right" />
       </body>

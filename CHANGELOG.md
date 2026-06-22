@@ -1,5 +1,30 @@
 # Changelog
 
+## v3.0.0 — 2026-06-22
+
+### 雲端同步 — 跨電腦使用
+
+- **所有資料自動同步到 Google Sheets**：
+  - 帳號設定 → 「帳號」工作表（含 API Key JSON、排程規則 JSON）
+  - 口吻設定 → 「口吻設定」工作表
+  - 貼文 → 「貼文」工作表（原有 upsert 機制）
+- **開啟 App 自動從雲端拉資料**（CloudSyncProvider）：
+  - 每次開啟瀏覽器 session 自動拉一次
+  - 雲端有但本地沒有的資料 → 自動匯入
+  - 雲端和本地都有的貼文 → 以較新的 updatedAt 為準
+  - 匯入後顯示 toast 提示並自動重新整理
+- **帳號/口吻操作即時同步雲端**：
+  - 新增帳號 → 同步
+  - 編輯帳號 → 同步
+  - 刪除帳號 → 雲端也刪除
+  - 新增/編輯/刪除口吻 → 同步
+- **API 擴充**（`/api/sheets`）：
+  - 新增 `GET ?type=all` 一次拉回所有資料
+  - 新增 `upsert-account`、`delete-account`、`upsert-style`、`delete-style` 操作
+- **注意**：AI API Keys 因安全考量不存入雲端，換電腦需在「設定」頁面重新輸入
+
+---
+
 ## v2.5.1 — 2026-06-22
 
 ### Bug 修復：排程時間 + Hashtag 行為

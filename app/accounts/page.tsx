@@ -15,6 +15,7 @@ import { Plus, Trash2, Settings, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import SetupGuide from '@/components/SetupGuide'
 import { PLATFORM_GUIDES } from '@/lib/setup-guides'
+import { syncAccountToCloud, deleteAccountFromCloud, syncStyleToCloud, deleteStyleFromCloud } from '@/lib/cloud-sync'
 
 const ICONS: Record<Platform, string> = { facebook: '🔵', instagram: '📸', threads: '🧵', x: '🐦' }
 
@@ -31,24 +32,27 @@ export default function AccountsPage() {
   function handleAdd() {
     const acc = createAccount({ platform: addPlatform, displayName: `新帳號 (${PLATFORM_LABELS[addPlatform]})` })
     saveAccount(acc)
+    syncAccountToCloud(acc)
     setAccounts(getAccounts())
     setEditing(acc)
     setShowAdd(false)
-    toast.success('帳號已新增')
+    toast.success('帳號已新增（已同步雲端）')
   }
 
   function handleSave(acc: SocialAccount) {
     saveAccount(acc)
     setAccounts(getAccounts())
     setEditing(null)
-    toast.success('帳號已更新')
+    syncAccountToCloud(acc)
+    toast.success('帳號已更新（已同步雲端）')
   }
 
   function handleDelete(id: string) {
     if (!confirm('確定要刪除這個帳號？相關的貼文不會被刪除。')) return
     deleteAccount(id)
     setAccounts(getAccounts())
-    toast.success('已刪除')
+    deleteAccountFromCloud(id)
+    toast.success('已刪除（已同步雲端）')
   }
 
   function openStyleList(accId: string) {
@@ -64,13 +68,15 @@ export default function AccountsPage() {
   function handleSaveStyle(sp: StyleProfile) {
     saveStyleProfile(sp)
     setStyleEditing(null)
-    toast.success('口吻設定已儲存')
+    syncStyleToCloud(sp)
+    toast.success('口吻設定已儲存（已同步雲端）')
   }
 
   function handleDeleteStyle(id: string) {
     if (!confirm('確定要刪除這組口吻？')) return
     deleteStyleProfile(id)
-    toast.success('口吻已刪除')
+    deleteStyleFromCloud(id)
+    toast.success('口吻已刪除（已同步雲端）')
   }
 
   return (

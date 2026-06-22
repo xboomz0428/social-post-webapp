@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
-import { ensureSheetsExist, appendPost, upsertPost, updatePostInSheet, getAllPosts } from '@/lib/google-sheets'
+import {
+  ensureSheetsExist, appendPost, upsertPost, updatePostInSheet, getAllPosts,
+  upsertAccount, getAllAccounts, deleteAccountFromSheet,
+  upsertStyleProfile, getAllStyleProfiles, deleteStyleProfileFromSheet,
+} from '@/lib/google-sheets'
 
 function getConfig() {
   const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID
@@ -10,13 +14,40 @@ function getConfig() {
   return { spreadsheetId, serviceAccountKey }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const config = getConfig()
   if (!config) {
-    return NextResponse.json({ error: 'Google Sheets 未設定。請在 Vercel 環境變數設定 GOOGLE_SPREADSHEET_ID 和 GOOGLE_SERVICE_ACCOUNT_KEY' }, { status: 400 })
+    return NextResponse.json({ error: 'Google Sheets 未設定' }, { status: 400 })
   }
 
+  const url = new URL(request.url)
+  const type = url.searchParams.get('type') || 'posts'
+
   try {
+    if (type === 'all') {
+      const [postRows, accountRows, styleRows] = await Promise.all([
+        getAllPosts(config),
+        getAllAccounts(config),
+        getAllStyleProfiles(config),
+      ])
+      return NextResponse.json({
+        success: true,
+        posts: postRows,
+        accounts: accountRows,
+        styles: styleRows,
+      })
+    }
+
+    if (type === 'accounts') {
+      const rows = await getAllAccounts(config)
+      return NextResponse.json({ success: true, rows })
+    }
+
+    if (type === 'styles') {
+      const rows = await getAllStyleProfiles(config)
+      return NextResponse.json({ success: true, rows })
+    }
+
     const rows = await getAllPosts(config)
     return NextResponse.json({ success: true, count: rows.length - 1, rows })
   } catch (err: unknown) {
@@ -27,7 +58,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const config = getConfig()
   if (!config) {
-    return NextResponse.json({ error: 'Google Sheets 未設定。請在 Vercel 環境變數設定 GOOGLE_SPREADSHEET_ID 和 GOOGLE_SERVICE_ACCOUNT_KEY' }, { status: 400 })
+    return NextResponse.json({ error: 'Google Sheets 未設定' }, { status: 400 })
   }
 
   try {
@@ -52,6 +83,28 @@ export async function POST(request: Request) {
     if (action === 'update') {
       await updatePostInSheet(config, body.postId, body.updates)
       return NextResponse.json({ success: true, message: '貼文已更新' })
+    }
+
+    // Account operations
+    if (action === 'upsert-account') {
+      await upsertAccount(config, body.account)
+      return NextResponse.json({ success: true, message: '帳號已同步' })
+    }
+
+    if (action === 'delete-account') {
+      await deleteAccountFromSheet(config, body.accountId)
+      return NextResponse.json({ success: true, message: '帳號已從雲端刪除' })
+    }
+
+    // Style profile operations
+    if (action === 'upsert-style') {
+      await upsertStyleProfile(config, body.style)
+      return NextResponse.json({ success: true, message: '口吻已同步' })
+    }
+
+    if (action === 'delete-style') {
+      await deleteStyleProfileFromSheet(config, body.styleId)
+      return NextResponse.json({ success: true, message: '口吻已從雲端刪除' })
     }
 
     return NextResponse.json({ error: `未知操作：${action}` }, { status: 400 })
