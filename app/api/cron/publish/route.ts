@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getAllPosts, updatePostInSheet, type SheetConfig } from '@/lib/google-sheets'
+import { getAllPosts, updatePostInSheet, ensureSheetsExist, type SheetConfig } from '@/lib/google-sheets'
 
 export const maxDuration = 60
 
@@ -132,6 +132,9 @@ export async function GET(request: Request) {
   const baseUrl = `${url.protocol}//${url.host}`
 
   try {
+    // ── Ensure sheet columns are up-to-date ─────────────────────────
+    await ensureSheetsExist(config)
+
     // ── Read all posts from Google Sheets ──────────────────────────
     const rows = await getAllPosts(config)
     if (rows.length <= 1) {

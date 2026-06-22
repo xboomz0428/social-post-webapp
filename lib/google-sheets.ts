@@ -55,7 +55,31 @@ export async function ensureSheetsExist(config: SheetConfig) {
     }
   }
 
-  return { created: sheetsToCreate.map(s => s.title), existing: existingSheets }
+  // Patch existing sheets: add missing header columns
+  const sheetsToUpdate = requiredSheets.filter(r => existingSheets.includes(r.title))
+  const columnsAdded: string[] = []
+
+  for (const s of sheetsToUpdate) {
+    const headerRes = await sheets.spreadsheets.values.get({
+      spreadsheetId: config.spreadsheetId,
+      range: `${s.title}!1:1`,
+    })
+    const currentHeaders = headerRes.data.values?.[0] ?? []
+
+    if (currentHeaders.length < s.headers.length) {
+      const missingHeaders = s.headers.slice(currentHeaders.length)
+      const startCol = String.fromCharCode(65 + currentHeaders.length) // A=65
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: config.spreadsheetId,
+        range: `${s.title}!${startCol}1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [missingHeaders] },
+      })
+      columnsAdded.push(`${s.title}: +${missingHeaders.join(', ')}`)
+    }
+  }
+
+  return { created: sheetsToCreate.map(s => s.title), existing: existingSheets, columnsAdded }
 }
 
 export async function appendPost(config: SheetConfig, post: Record<string, string>) {
